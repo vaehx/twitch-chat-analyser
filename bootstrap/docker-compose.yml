@@ -1,0 +1,12 @@
+version: '2.2'
+services:
+  kafka:
+    build: kafka/
+    image: twitch-kafka-image
+    container_name: twitch-kafka
+    ports:
+    - "9092:9092"
+    - "2181:2181"
+    environment:
+    - KAFKA_LISTENERS=PLAINTEXT://:9092
+    - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://docker-host:9092
