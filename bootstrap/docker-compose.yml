@@ -10,3 +10,23 @@ services:
     environment:
     - KAFKA_LISTENERS=PLAINTEXT://:9092
     - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://docker-host:9092
+#  db:
+#    image: cassandra:latest
+#    container_name: twitch-db
+#    ports:
+#    - ""
+  hadoop:
+    build: hadoop/
+    image: twitch-hadoop-image
+    container_name: twitch-hadoop
+    ports:
+    - "8020:8020"
+    - "50010:50010"
+    - "50070:50070"
+    - "50075:50075"
+    - "2222:2222"
+    - "16000:16000"
+    - "16201:16201"
+    - "16010:16010"
+    environment:
+    - HADOOP_ADVERTISED_HOSTNAME=docker-host

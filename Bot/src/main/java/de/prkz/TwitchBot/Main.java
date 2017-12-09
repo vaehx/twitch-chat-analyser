@@ -18,7 +18,7 @@ public class Main {
 
 		// Setup kafka producer
 		Properties producerProps = new Properties();
-		producerProps.put("bootstrap.servers", "twitchbot-kafka:2181");
+		producerProps.put("bootstrap.servers", "docker-host:9092");
 		producerProps.put("key.serializer", StringSerializer.class);
 		producerProps.put("value.serializer", StringSerializer.class);
 
