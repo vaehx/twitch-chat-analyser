@@ -16,19 +16,11 @@ public class Main {
 
 	public static void main(String[] args) throws Exception {
 
-		// Setup kafka producer
-		Properties producerProps = new Properties();
-		producerProps.put("bootstrap.servers", "docker-host:9092");
-		producerProps.put("key.serializer", StringSerializer.class);
-		producerProps.put("value.serializer", StringSerializer.class);
-
-		KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps);
-
 		// Setup twitch IRC bot
 		Configuration config = new Configuration.Builder()
 				.setName("justinfan618723")
 				.addServer("irc.chat.twitch.tv", 6667)
-				.addListener(new Bot(producer))
+				.addListener(new Bot("docker-host:9092"))
 				.addAutoJoinChannel("#lirik")
 				.buildConfiguration();
 
