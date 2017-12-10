@@ -9,7 +9,6 @@ RUN apt-get -y install ssh procps whois lsof iproute2 iputils-ping tcpdump nano
 
 # Setup supervisor
 RUN apt-get install -y supervisor
-ADD supervisor/hadoop.conf supervisor/hbase.conf /etc/supervisor/conf.d/
 
 # Install required packages in startup scripts
 RUN apt-get install -y xmlstarlet netcat
@@ -43,7 +42,8 @@ ADD hadoop/hdfs-site.xml hadoop/core-site.xml hadoop/hadoop-env.sh /hadoop/etc/h
 
 RUN mkdir -p /hadoop/dfs /hadoop/dfs/name /hadoop/dfs/data
 
-RUN chown -R $HADOOP_USERNAME:$HADOOP_USERNAME $HADOOP_HOME
+RUN chown $HADOOP_USERNAME:$HADOOP_USERNAME $HADOOP_HOME
+RUN chown -R $HADOOP_USERNAME:$HADOOP_USERNAME $HADOOP_HOME/dfs
 
 ADD hadoop/start-hdfs.sh /usr/bin/
 RUN chmod +x /usr/bin/start-hdfs.sh
@@ -61,5 +61,7 @@ ADD hbase/start-hbase.sh /usr/bin/
 RUN chmod +x /usr/bin/start-hbase.sh
 
 RUN chown $HADOOP_USERNAME:$HADOOP_USERNAME $HBASE_HOME
+
+ADD supervisor/hadoop.conf supervisor/hbase.conf /etc/supervisor/conf.d/
 
 CMD ["supervisord", "-n"]

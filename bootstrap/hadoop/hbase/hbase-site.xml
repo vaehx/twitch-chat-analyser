@@ -23,7 +23,7 @@
 <configuration>
     <property>
         <name>hbase.zookeeper.quorum</name>
-        <value>cyface-hbase</value><!-- Replaced by startup script -->
+        <value></value><!-- Replaced by startup script -->
     </property>
     <property>
         <name>hbase.zookeeper.property.clientPort</name>
@@ -35,7 +35,7 @@
     </property>
     <property>
         <name>hbase.rootdir</name>
-        <value>hdfs://cyface-hadoop:8020/cyface-hbase</value>
+        <value>hdfs://localhost:8020/cyface-hbase</value>
     </property>
     <property>
         <name>hbase.master</name>

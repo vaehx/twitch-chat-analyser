@@ -48,7 +48,7 @@ if ! [ "$1" == "--slave" ]; then
     PATH=$PATH:$HADOOP_HOME/bin
 
     # Make sure spark checkpoint directory exists on hdfs
-    if ! hdfs dfs -test -d /cyface-checkpoint; then
+    if ! hdfs dfs -test -d /spark-checkpoint; then
         # We need to execute this as hadoop user, because root does not have
         # permissions in root directory
         su $HADOOP_USERNAME -m -c '$HADOOP_HOME/bin/hdfs dfs -mkdir /spark-checkpoint'
