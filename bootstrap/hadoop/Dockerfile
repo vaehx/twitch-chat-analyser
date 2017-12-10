@@ -45,7 +45,7 @@ RUN mkdir -p /hadoop/dfs /hadoop/dfs/name /hadoop/dfs/data
 
 RUN chown -R $HADOOP_USERNAME:$HADOOP_USERNAME $HADOOP_HOME
 
-ADD start-hdfs.sh /usr/bin/
+ADD hadoop/start-hdfs.sh /usr/bin/
 RUN chmod +x /usr/bin/start-hdfs.sh
 
 # HBase
@@ -55,11 +55,11 @@ RUN mkdir $HBASE_HOME \
     && ln -s $HBASE_HOME /hbase \
     && rm -rf /hbase/docs
 
-ADD hbase-site.xml hbase-env.sh /hbase/conf/
+ADD hbase/hbase-site.xml hbase/hbase-env.sh /hbase/conf/
 
-ADD start-hbase.sh /usr/bin/
+ADD hbase/start-hbase.sh /usr/bin/
 RUN chmod +x /usr/bin/start-hbase.sh
 
-RUN chown $HADOOP_USERNAME:$HADOOP_USERNAME /opt/hbase
+RUN chown $HADOOP_USERNAME:$HADOOP_USERNAME $HBASE_HOME
 
 CMD ["supervisord", "-n"]
