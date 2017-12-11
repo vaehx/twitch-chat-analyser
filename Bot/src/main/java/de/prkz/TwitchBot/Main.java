@@ -21,7 +21,7 @@ public class Main {
 				.setName("justinfan618723")
 				.addServer("irc.chat.twitch.tv", 6667)
 				.addListener(new Bot("docker-host:9092"))
-				.addAutoJoinChannel("#lirik")
+				.addAutoJoinChannel("#food")
 				.buildConfiguration();
 
 		bot = new PircBotX(config);

@@ -1,10 +1,10 @@
 package de.prkz
 
-import de.prkz.hbase.sql.HBaseRowConverter
-import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
-import org.apache.hadoop.hbase.client.{ConnectionFactory, HBaseAdmin, Put}
+import de.prkz.hbase.sql.HBaseStreamSinkProvider
+import org.apache.hadoop.hbase.client.{ConnectionFactory, HBaseAdmin}
 import org.apache.hadoop.hbase.util.Bytes
-import org.apache.spark.sql.{Row, SparkSession}
+import org.apache.hadoop.hbase.{HBaseConfiguration, HColumnDescriptor, HTableDescriptor, TableName}
+import org.apache.spark.sql.SparkSession
 
 import scala.util.parsing.json.JSON
 
@@ -23,6 +23,7 @@ object Analyser {
 		val spark = SparkSession
 				.builder
 				.appName("TwitchChatAnalyser")
+				.config("spark.sql.streaming.checkpointLocation", "checkpoint")
 				.getOrCreate()
 
 		import spark.implicits._
@@ -39,13 +40,9 @@ object Analyser {
 
 		val messages = rawMessages
 				.map(json => {
-					JSON.parseFull(json) match {
-						case Some(messageData: Map[String, String]) => {
-							(messageData("channel"), messageData("message"))
-						}
-						case None => Nil
-					}
-				}).as[(String, String)]
+					val m = JSON.parseFull(json).get.asInstanceOf[Map[String, String]]
+					(m("channel"), m("text"))
+				})
 
 		val wordCounts = messages
 				.flatMap(m => m._2.split("\\s+").map(w => (m._1, w)))
@@ -56,7 +53,7 @@ object Analyser {
 		val query = wordCounts
 				.writeStream
 				.outputMode("update")
-				.format("hbase")
+				.format(classOf[HBaseStreamSinkProvider].getCanonicalName)
 				.option("hbase.zookeeper.quorum", HBASE_ZOOKEEPER_QUORUM)
 				.option("hbase.zookeeper.port", HBASE_ZOOKEEPER_PORT)
 				.option("hbase.table", HBASE_TABLE_NAME)
@@ -82,19 +79,6 @@ object Analyser {
 			val tableDesc = new HTableDescriptor(tableName)
 			tableDesc.addFamily(new HColumnDescriptor(CF_METRICS))
 			hbaseAdmin.createTable(tableDesc)
-		}
-	}
-
-	class MessageRowConverter extends HBaseRowConverter {
-		override def convertToPuts(row: Row): Array[Put] = {
-			val channel = row.getAs[String]("channel")
-			val word = row.getAs[String]("word")
-			val count = row.getAs[Int]("count")
-
-			val put = new Put(Bytes.toBytes(channel + "!" + word))
-			put.addColumn(CF_METRICS, Bytes.toBytes("occurrences"), Bytes.toBytes(count))
-
-			Array(put)
 		}
 	}
 
