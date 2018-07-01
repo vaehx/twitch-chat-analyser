@@ -13,7 +13,6 @@ public class EmoteExtractor implements FlatMapFunction<Message, Emote> {
 	public void flatMap(Message message, Collector<Emote> collector) throws Exception {
 		String[] words = message.message.split("\\s+");
 		for (String word : words) {
-			LOG.info("Found word: " + word);
 			if (Emote.isEmote(word)) {
 				Emote e = new Emote();
 				e.emote = word;

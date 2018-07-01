@@ -71,6 +71,7 @@ public class EmoteAnalyser {
 				.setDBUrl(jdbcUrl)
 				.setQuery("INSERT INTO emotes(username, emote, timestamp, occurrences) VALUES(?, ?, ?, ?)")
 				.setSqlTypes(new int[] { Types.VARCHAR, Types.VARCHAR, Types.BIGINT, Types.BIGINT })
+				.setBatchInterval(1)
 				.finish();
 
 		emoteOccurences
