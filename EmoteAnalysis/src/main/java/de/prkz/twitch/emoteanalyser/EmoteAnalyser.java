@@ -64,7 +64,7 @@ public class EmoteAnalyser {
 		JDBCOutputFormat jdbcOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
 				.setDrivername("org.postgresql.Driver")
 				.setDBUrl(jdbcUrl)
-				.setQuery("INSERT INTO emotes(user, emote, timestamp, occurences) VALUES(?, ?, ?, ?)")
+				.setQuery("INSERT INTO emotes(username, emote, timestamp, occurrences) VALUES(?, ?, ?, ?)")
 				.setSqlTypes(new int[] { Types.VARCHAR, Types.VARCHAR, Types.BIGINT, Types.BIGINT })
 				.finish();
 
@@ -86,11 +86,11 @@ public class EmoteAnalyser {
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
 		stmt.execute("CREATE TABLE IF NOT EXISTS emotes(" +
-				"user VARCHAR(32) NOT NULL," +
+				"username VARCHAR(32) NOT NULL," +
 				"emote VARCHAR(64) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"occurences BIGINT NOT NULL DEFAULT 0," +
-				"PRIMARY KEY(user, emote, timestamp))");
+				"occurrences BIGINT NOT NULL DEFAULT 0," +
+				"PRIMARY KEY(username, emote, timestamp))");
 		stmt.close();
 		conn.close();
 	}

@@ -4,12 +4,13 @@ services:
   flink:
     image: flink
     command: local
+    container_name: flink
     expose:
       - "6123"
     ports:
       - "8081:8081"
-    volumes:
-      - target/emote-analyzer-1.0-SNAPSHOT.jar:/analyser.jar:ro
+    links:
+      - db
 
   db:
     image: postgres:alpine
