@@ -9,10 +9,14 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
 import org.apache.flink.util.Collector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // Key: (username, emote)
 public class OccurenceAggregation
 		extends ProcessWindowFunction<Emote, EmoteOccurences, Tuple2<String, String>, GlobalWindow> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(OccurenceAggregation.class);
 
 	private transient ValueState<EmoteOccurences> occurencesState;
 
@@ -27,6 +31,9 @@ public class OccurenceAggregation
 						Context context,
 						Iterable<Emote> emotes,
 						Collector<EmoteOccurences> collector) throws Exception {
+
+		LOG.info("OccurenceAggregation::process()");
+
 		EmoteOccurences occurences = occurencesState.value();
 		if (occurences == null) {
 
@@ -44,6 +51,8 @@ public class OccurenceAggregation
 
 		// Emit current occurrence count
 		collector.collect(occurences);
+
+		LOG.info("user: " + occurences.username + ", emote: " + occurences.emote + ", occurences: " + occurences.occurrences);
 
 		occurencesState.update(occurences);
 	}

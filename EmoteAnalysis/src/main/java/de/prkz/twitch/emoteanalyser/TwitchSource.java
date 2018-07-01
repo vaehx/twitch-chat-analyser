@@ -4,12 +4,16 @@ import org.apache.flink.streaming.api.functions.source.RichSourceFunction;
 import org.pircbotx.PircBotX;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.MessageEvent;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class TwitchSource extends RichSourceFunction<Message> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(TwitchSource.class);
 
 	private transient PircBotX bot;
 	private transient final Lock lock = new ReentrantLock();
@@ -67,6 +71,8 @@ public class TwitchSource extends RichSourceFunction<Message> {
 			m.timestamp = event.getTimestamp();
 			m.username = event.getUser().getNick();
 			m.message = event.getMessage();
+
+			LOG.info(m.username + ": " + m.message);
 
 			synchronized (ctx.getCheckpointLock()) {
 				ctx.collectWithTimestamp(m, m.timestamp);

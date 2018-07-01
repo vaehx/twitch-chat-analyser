@@ -55,7 +55,12 @@ public class EmoteAnalyser {
 				.name("ExtractEmotes");
 
 		DataStream<EmoteOccurences> emoteOccurences = emotes
-				.keyBy((KeySelector<Emote, Tuple2<String, String>>) emote -> new Tuple2<>(emote.username, emote.emote))
+				.keyBy(new KeySelector<Emote, Tuple2<String, String>>() {
+					@Override
+					public Tuple2<String, String> getKey(Emote emote) throws Exception {
+						return new Tuple2<>(emote.username, emote.emote);
+					}
+				})
 				.window(GlobalWindows.create())
 				.trigger(ContinuousProcessingTimeTrigger.of(Time.minutes(1)))
 				.process(new OccurenceAggregation());
@@ -71,10 +76,10 @@ public class EmoteAnalyser {
 		emoteOccurences
 				.map((MapFunction<EmoteOccurences, Row>) occurrences -> {
 					Row row = new Row(4);
-					row.setField(1, occurrences.username);
-					row.setField(2, occurrences.emote);
-					row.setField(3, occurrences.timestamp);
-					row.setField(4, occurrences.occurrences);
+					row.setField(0, occurrences.username);
+					row.setField(1, occurrences.emote);
+					row.setField(2, occurrences.timestamp);
+					row.setField(3, occurrences.occurrences);
 					return row;
 				})
 				.writeUsingOutputFormat(jdbcOutputFormat);
