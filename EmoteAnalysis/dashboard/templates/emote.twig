@@ -1,0 +1,71 @@
+{% extends 'layout.twig' %}
+{% block content %}
+
+<a href="{{ path('index') }}">&larr; Back to emotes</a>
+
+<h2>Emote '{{ emote }}'</h2>
+
+{% for user in users %}
+<div id="user-row-{{ user }}" class="user-row" style="display:none;">
+	<b>{{ user }}</b>
+	<div id="user-graph-{{ user }}" style="width:500px; height:300px"></div>
+	<br />
+</div>
+{% endfor %}
+
+
+<script type="text/javascript">
+	var chartData = {};
+	function populateData() {
+
+		/*
+		[
+			'user1': [
+				['time', 'occurences'],
+				[238974575000, 125],
+				...
+			]
+		]
+		 */
+
+		{% for user in users %}
+		chartData['{{ user }}'] = [
+			['Time', 'Occurences'],
+			{% for stat in stats if stat.username == user %}
+			[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+			{% endfor %}
+		];
+		{% endfor %}
+
+	}
+</script>
+
+<script type="text/javascript">
+	google.charts.load('current', {'packages':['corechart']});
+	google.charts.setOnLoadCallback(drawCharts);
+
+	function drawCharts() {
+		populateData();
+		Object.keys(chartData).forEach(function(username) {
+			var dataArray = chartData[username];
+			if (dataArray.length - 1 < 2)
+				return;
+
+			$('#user-row-' + username).show();
+			var data = google.visualization.arrayToDataTable(dataArray);
+			var chart = new google.visualization.LineChart(document.getElementById('user-graph-' + username));
+			chart.draw(data, {
+				legend: 'none',
+				chartArea: {
+					left: 40,
+					top: 15,
+					width: '80%',
+					height: '80%'
+				}
+			});
+		});
+	}
+</script>
+
+
+{% endblock %}

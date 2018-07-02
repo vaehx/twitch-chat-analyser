@@ -1,0 +1,50 @@
+{% extends 'layout.twig' %}
+{% block content %}
+
+<h2>Emotes</h2>
+{% for emote in emotes %}
+	<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a>
+{% endfor %}
+
+<div id="comparison-chart" style="width:1200px; height:500px"></div>
+
+<script type="text/javascript">
+	google.charts.load('current', {'packages':['corechart']});
+	google.charts.setOnLoadCallback(drawCharts);
+
+	var chartData = [['Time', 'moon2MLEM', 'moon2S', 'moon2A', 'moon2N', 'PogChamp']];
+	function populateData() {
+		{% for stat in mlemStats %}
+			chartData.push([new Date({{ stat.timestamp }}), {{ stat.occurrences }}, null, null, null, null]);
+		{% endfor %}
+		{% for stat in smileStats %}
+			chartData.push([new Date({{ stat.timestamp }}), null, {{ stat.occurrences }}, null, null, null]);
+		{% endfor %}
+		{% for stat in angryStats %}
+			chartData.push([new Date({{ stat.timestamp }}), null, null, {{ stat.occurrences }}, null, null]);
+		{% endfor %}
+		{% for stat in neutStats %}
+			chartData.push([new Date({{ stat.timestamp }}), null, null, null, {{ stat.occurrences }}, null]);
+		{% endfor %}
+		{% for stat in pogChampStats %}
+			chartData.push([new Date({{ stat.timestamp }}), null, null, null, null, {{ stat.occurrences }}]);
+		{% endfor %}
+	}
+
+	function drawCharts() {
+		populateData();
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('comparison-chart'));
+		chart.draw(data, {
+			curveType: 'function',
+			chartArea: {
+				left: 40,
+				top: 15,
+				width: '75%',
+				height: '80%'
+			}
+		});
+	}
+</script>
+
+{% endblock %}
