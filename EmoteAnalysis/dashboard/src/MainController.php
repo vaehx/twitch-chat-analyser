@@ -80,7 +80,7 @@ class MainController implements ControllerProviderInterface
 		{
 			$ts = $row[0];
 			$stmt2 = $db->query("SELECT SUM(maxocc) AS occurrences FROM " .
-				"(SELECT MAX(occurrences) AS maxocc FROM emotes WHERE emote='$emote' AND timestamp <= $ts GROUP BY username) t");
+				"(SELECT MAX(occurrences) AS maxocc FROM emotes WHERE emote='$emote' AND timestamp > 0 AND timestamp <= $ts GROUP BY username) t");
 			$stats[] = [
 				'timestamp' => $ts,
 				'occurrences' => $stmt2->fetch()[0]
