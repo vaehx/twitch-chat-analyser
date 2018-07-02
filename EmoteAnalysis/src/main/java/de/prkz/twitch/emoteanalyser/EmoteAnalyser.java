@@ -7,9 +7,8 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.windowing.assigners.GlobalWindows;
+import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.streaming.api.windowing.triggers.ContinuousProcessingTimeTrigger;
 import org.apache.flink.types.Row;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -61,8 +60,7 @@ public class EmoteAnalyser {
 						return new Tuple2<>(emote.username, emote.emote);
 					}
 				})
-				.window(GlobalWindows.create())
-				.trigger(ContinuousProcessingTimeTrigger.of(Time.minutes(1)))
+				.window(TumblingEventTimeWindows.of(Time.minutes(1)))
 				.process(new OccurenceAggregation());
 
 		// Write occurence counts as timeseries to database

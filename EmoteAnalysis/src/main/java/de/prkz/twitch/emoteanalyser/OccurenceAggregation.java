@@ -7,14 +7,14 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
-import org.apache.flink.streaming.api.windowing.windows.GlobalWindow;
+import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 // Key: (username, emote)
 public class OccurenceAggregation
-		extends ProcessWindowFunction<Emote, EmoteOccurences, Tuple2<String, String>, GlobalWindow> {
+		extends ProcessWindowFunction<Emote, EmoteOccurences, Tuple2<String, String>, TimeWindow> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(OccurenceAggregation.class);
 

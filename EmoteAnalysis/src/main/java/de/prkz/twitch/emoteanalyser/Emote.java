@@ -6,7 +6,24 @@ public class Emote {
 
 	public static boolean isEmote(String emote) {
 		String[] emotes = new String[] {
-				"moon2MLEM", "moon2S", "moon2A", "PogChamp", "LuL"
+				"moon2MLEM",
+				"moon2N",
+				"moon2S",
+				"moon2A",
+				"moon2C",
+				"moon2SMUG",
+				"moon2E",
+				"moon2L",
+				"moon2WINKY",
+				"moon2CUTE",
+				"KKona",
+				"PogChamp",
+				"LuL",
+				"LUL",
+				":)",
+				"pepeD",
+				"moon2O",
+				"CoolCat"
 		};
 
 		for (String validEmote : emotes) {
