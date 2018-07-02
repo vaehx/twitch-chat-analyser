@@ -15,6 +15,7 @@ public class EmoteExtractor implements FlatMapFunction<Message, Emote> {
 		for (String word : words) {
 			if (Emote.isEmote(word)) {
 				Emote e = new Emote();
+				e.timestamp = message.timestamp;
 				e.emote = word;
 				e.username = message.username;
 				collector.collect(e);

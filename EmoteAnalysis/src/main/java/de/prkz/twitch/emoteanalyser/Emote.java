@@ -1,6 +1,7 @@
 package de.prkz.twitch.emoteanalyser;
 
 public class Emote {
+	public long timestamp;
 	public String username;
 	public String emote;
 
@@ -17,6 +18,7 @@ public class Emote {
 				"moon2WINKY",
 				"moon2CUTE",
 				"KKona",
+				"DansGame",
 				"PogChamp",
 				"LuL",
 				"LUL",

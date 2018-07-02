@@ -7,6 +7,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
+import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.types.Row;
@@ -51,6 +52,12 @@ public class EmoteAnalyser {
 		// Event-Timestamps from Source are preserved
 		DataStream<Emote> emotes = messages
 				.flatMap(new EmoteExtractor())
+				.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
+					@Override
+					public long extractAscendingTimestamp(Emote emote) {
+						return emote.timestamp;
+					}
+				})
 				.name("ExtractEmotes");
 
 		DataStream<EmoteOccurences> emoteOccurences = emotes
