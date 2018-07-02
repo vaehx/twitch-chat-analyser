@@ -41,7 +41,7 @@ public class EmoteAnalyser {
 
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
-		env.getConfig().setLatencyTrackingInterval(5L);
+		//env.getConfig().setLatencyTrackingInterval(5L);
 
 		// Twitch chat bot source
 		DataStream<Message> messages = env
