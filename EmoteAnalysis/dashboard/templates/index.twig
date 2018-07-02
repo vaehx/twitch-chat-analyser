@@ -6,6 +6,15 @@
 	<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a>
 {% endfor %}
 
+<h2>Overview</h2>
+
+<p>
+	<form action="{{ path('index') }}" method="GET">
+		Show last <input type="text" value="{{ shownMinutes }}" name="shownMinutes" pattern="[0-9]+" /> minutes
+		<button type="submit">Go</button>
+	</form>
+</p>
+
 <div id="comparison-chart" style="width:1200px; height:500px"></div>
 
 <script type="text/javascript">
@@ -36,7 +45,6 @@
 		var data = google.visualization.arrayToDataTable(chartData);
 		var chart = new google.visualization.LineChart(document.getElementById('comparison-chart'));
 		chart.draw(data, {
-			curveType: 'function',
 			chartArea: {
 				left: 40,
 				top: 15,

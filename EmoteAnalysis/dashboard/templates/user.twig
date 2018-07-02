@@ -1,0 +1,46 @@
+{% extends 'layout.twig' %}
+{% block content %}
+
+<a href="{{ path('emote', { emote: emote }) }}">&larr; Back to emote '{{ emote }}'</a>
+
+<h2>Emote '{{ emote }}' by user '{{ username }}'</h2>
+
+<b>{{ username }}</b>
+<div id="user-graph" style="width:800px; height:300px"></div>
+
+
+<script type="text/javascript">
+	var chartData = [];
+	function populateData() {
+		chartData = [
+			['Time', 'Occurences'],
+			{% for stat in stats %}
+				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+			{% endfor %}
+		];
+	}
+</script>
+
+<script type="text/javascript">
+	google.charts.load('current', {'packages':['corechart']});
+	google.charts.setOnLoadCallback(drawCharts);
+
+	function drawCharts() {
+		populateData();
+
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('user-graph'));
+		chart.draw(data, {
+			legend: 'none',
+			chartArea: {
+				left: 40,
+				top: 15,
+				width: '80%',
+				height: '80%'
+			}
+		});
+	}
+</script>
+
+
+{% endblock %}

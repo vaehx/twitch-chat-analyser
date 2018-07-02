@@ -1,71 +1,22 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<a href="{{ path('index') }}">&larr; Back to emotes</a>
+<a href="{{ path('index') }}">&larr; Back to overview</a>
 
 <h2>Emote '{{ emote }}'</h2>
 
-{% for user in users %}
-<div id="user-row-{{ user }}" class="user-row" style="display:none;">
-	<b>{{ user }}</b>
-	<div id="user-graph-{{ user }}" style="width:500px; height:300px"></div>
-	<br />
-</div>
+<h3>Leaderboard</h3>
+<table>
+	<tr>
+		<th>User</th>
+		<th>Occurrences</th>
+	</tr>
+{% for user in leaderboard %}
+	<tr>
+		<td><a href="{{ path('emote_user', { emote: emote, username: user.username }) }}">{{ user.username }}</a></td>
+		<td>{{ user.occurrences }}</td>
+	</tr>
 {% endfor %}
-
-
-<script type="text/javascript">
-	var chartData = {};
-	function populateData() {
-
-		/*
-		[
-			'user1': [
-				['time', 'occurences'],
-				[238974575000, 125],
-				...
-			]
-		]
-		 */
-
-		{% for user in users %}
-		chartData['{{ user }}'] = [
-			['Time', 'Occurences'],
-			{% for stat in stats if stat.username == user %}
-			[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
-			{% endfor %}
-		];
-		{% endfor %}
-
-	}
-</script>
-
-<script type="text/javascript">
-	google.charts.load('current', {'packages':['corechart']});
-	google.charts.setOnLoadCallback(drawCharts);
-
-	function drawCharts() {
-		populateData();
-		Object.keys(chartData).forEach(function(username) {
-			var dataArray = chartData[username];
-			if (dataArray.length - 1 < 2)
-				return;
-
-			$('#user-row-' + username).show();
-			var data = google.visualization.arrayToDataTable(dataArray);
-			var chart = new google.visualization.LineChart(document.getElementById('user-graph-' + username));
-			chart.draw(data, {
-				legend: 'none',
-				chartArea: {
-					left: 40,
-					top: 15,
-					width: '80%',
-					height: '80%'
-				}
-			});
-		});
-	}
-</script>
-
+</table>
 
 {% endblock %}
