@@ -32,11 +32,13 @@ public class TwitchSource extends RichSourceFunction<Message> {
 				.addServer("irc.chat.twitch.tv", 6667)
 				.addListener(new Bot(sourceContext))
 				.addAutoJoinChannel("#" + channel)
+				.setAutoReconnect(true)
 				.buildConfiguration();
 		bot = new PircBotX(config);
 		bot.startBot();
 
 		cancelled.await();
+		bot.stopBotReconnect();
 	}
 
 	@Override
@@ -47,8 +49,10 @@ public class TwitchSource extends RichSourceFunction<Message> {
 	@Override
 	public void close() throws Exception {
 		super.close();
-		if (bot != null)
+		if (bot != null) {
+			bot.stopBotReconnect();
 			bot.close();
+		}
 	}
 
 
