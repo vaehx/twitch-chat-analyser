@@ -72,7 +72,7 @@ public class TwitchSource extends RichSourceFunction<Message> {
 			m.username = event.getUser().getNick();
 			m.message = event.getMessage();
 
-			LOG.info(m.username + ": " + m.message);
+			//LOG.info(m.username + ": " + m.message);
 
 			synchronized (ctx.getCheckpointLock()) {
 				ctx.collectWithTimestamp(m, m.timestamp);
