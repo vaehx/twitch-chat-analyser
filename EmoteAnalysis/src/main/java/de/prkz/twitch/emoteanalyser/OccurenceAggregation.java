@@ -50,6 +50,7 @@ public class OccurenceAggregation
 			occurences.occurrences++;
 
 		// Emit current occurrence count
+		occurences.timestamp = System.currentTimeMillis();
 		collector.collect(occurences);
 
 		LOG.info("user: " + occurences.username + ", emote: " + occurences.emote + ", occurences: " + occurences.occurrences);
