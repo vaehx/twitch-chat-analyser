@@ -12,6 +12,11 @@ import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
+
 // Key: (username, emote)
 public class OccurenceAggregation
 		extends ProcessWindowFunction<Emote, EmoteOccurences, Tuple2<String, String>, TimeWindow> {
@@ -19,11 +24,19 @@ public class OccurenceAggregation
 	private static final Logger LOG = LoggerFactory.getLogger(OccurenceAggregation.class);
 
 	private transient ValueState<EmoteOccurences> occurencesState;
+	private transient Connection conn;
+	private String jdbcUrl;
+
+	public OccurenceAggregation(String jdbcUrl) {
+		this.jdbcUrl = jdbcUrl;
+	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		occurencesState = getRuntimeContext().getState(new ValueStateDescriptor<>(
 				"occurences", TypeInformation.of(new TypeHint<EmoteOccurences>() {})));
+
+		conn = DriverManager.getConnection(jdbcUrl);
 	}
 
 	@Override
@@ -32,17 +45,24 @@ public class OccurenceAggregation
 						Iterable<Emote> emotes,
 						Collector<EmoteOccurences> collector) throws Exception {
 
-		LOG.info("OccurenceAggregation::process()");
-
 		EmoteOccurences occurences = occurencesState.value();
 		if (occurences == null) {
-
-			// TODO: Load current count from database, if it exists
-
 			occurences = new EmoteOccurences();
 			occurences.username = key.f0;
 			occurences.emote = key.f1;
-			occurences.occurrences = 0;
+
+			// Load current count from database, if it exists
+			Statement stmt = conn.createStatement();
+			ResultSet result = stmt.executeQuery("SELECT occurrences FROM emotes WHERE " +
+					"username='" + occurences.username + "' AND emote='" + occurences.emote + "' " +
+					"ORDER BY timestamp DESC LIMIT 1");
+
+			if (result.next())
+				occurences.occurrences = result.getLong(1);
+			else
+				occurences.occurrences = 0;
+
+			stmt.close();
 		}
 
 		// Increase occurrence count
@@ -56,5 +76,10 @@ public class OccurenceAggregation
 		LOG.info("user: " + occurences.username + ", emote: " + occurences.emote + ", occurences: " + occurences.occurrences);
 
 		occurencesState.update(occurences);
+	}
+
+	@Override
+	public void close() throws Exception {
+		conn.close();
 	}
 }

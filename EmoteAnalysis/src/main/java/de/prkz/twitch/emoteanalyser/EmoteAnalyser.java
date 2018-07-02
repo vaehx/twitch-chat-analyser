@@ -68,7 +68,7 @@ public class EmoteAnalyser {
 					}
 				})
 				.window(TumblingEventTimeWindows.of(Time.minutes(1)))
-				.process(new OccurenceAggregation());
+				.process(new OccurenceAggregation(jdbcUrl));
 
 		// Write occurence counts as timeseries to database
 		JDBCOutputFormat jdbcOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
