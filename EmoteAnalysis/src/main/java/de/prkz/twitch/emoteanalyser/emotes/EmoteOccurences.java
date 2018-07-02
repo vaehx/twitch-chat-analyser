@@ -1,4 +1,4 @@
-package de.prkz.twitch.emoteanalyser;
+package de.prkz.twitch.emoteanalyser.emotes;
 
 /**
  * Describes a sample of the number occurrences of an emote from a user at a timestamp

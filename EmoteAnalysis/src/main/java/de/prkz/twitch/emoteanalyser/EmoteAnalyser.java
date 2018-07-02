@@ -1,5 +1,11 @@
 package de.prkz.twitch.emoteanalyser;
 
+import de.prkz.twitch.emoteanalyser.emotes.Emote;
+import de.prkz.twitch.emoteanalyser.emotes.EmoteExtractor;
+import de.prkz.twitch.emoteanalyser.emotes.EmoteOccurences;
+import de.prkz.twitch.emoteanalyser.emotes.OccurenceAggregation;
+import de.prkz.twitch.emoteanalyser.userstats.MessageCountAggregation;
+import de.prkz.twitch.emoteanalyser.userstats.UserStats;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.io.jdbc.JDBCOutputFormat;
@@ -30,7 +36,7 @@ public class EmoteAnalyser {
 		// Prepare output table
 		LOG.info("Preparing output table...");
 		try {
-			prepareTable();
+			prepareTables();
 		}
 		catch (Exception ex) {
 			LOG.error("Could not initialize table", ex);
@@ -47,6 +53,45 @@ public class EmoteAnalyser {
 		DataStream<Message> messages = env
 				.addSource(new TwitchSource("moonmoon_ow"))
 				.name("TwitchSource");
+
+
+		// Extract general message counts for each user
+		DataStream<UserStats> userStats = messages
+				.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Message>() {
+					@Override
+					public long extractAscendingTimestamp(Message message) {
+						return message.timestamp;
+					}
+				})
+				.keyBy(new KeySelector<Message, String>() {
+					@Override
+					public String getKey(Message message) throws Exception {
+						return message.username;
+					}
+				})
+				.window(TumblingEventTimeWindows.of(Time.minutes(1)))
+				.process(new MessageCountAggregation(jdbcUrl));
+
+		// Write user stats to database
+		JDBCOutputFormat userStatsOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
+				.setDrivername("org.postgresql.Driver")
+				.setDBUrl(jdbcUrl)
+				.setQuery("INSERT INTO users(username, timestamp, message_count) VALUES(?, ?, ?)")
+				.setSqlTypes(new int[] { Types.VARCHAR, Types.BIGINT, Types.BIGINT })
+				.setBatchInterval(1)
+				.finish();
+
+		userStats
+				.map((MapFunction<UserStats, Row>) userStats1 -> {
+					Row row = new Row(3);
+					row.setField(0, userStats1.username);
+					row.setField(1, userStats1.timestamp );
+					row.setField(2, userStats1.messageCount);
+					return row;
+				})
+				.writeUsingOutputFormat(userStatsOutputFormat);
+
+
 
 		// Extract words from messages
 		// Event-Timestamps from Source are preserved
@@ -71,7 +116,7 @@ public class EmoteAnalyser {
 				.process(new OccurenceAggregation(jdbcUrl));
 
 		// Write occurence counts as timeseries to database
-		JDBCOutputFormat jdbcOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
+		JDBCOutputFormat emoteStatsOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
 				.setDrivername("org.postgresql.Driver")
 				.setDBUrl(jdbcUrl)
 				.setQuery("INSERT INTO emotes(username, emote, timestamp, occurrences) VALUES(?, ?, ?, ?)")
@@ -88,12 +133,12 @@ public class EmoteAnalyser {
 					row.setField(3, occurrences.occurrences);
 					return row;
 				})
-				.writeUsingOutputFormat(jdbcOutputFormat);
+				.writeUsingOutputFormat(emoteStatsOutputFormat);
 
 		env.execute("EmoteAnalysis");
 	}
 
-	static void prepareTable() throws SQLException {
+	static void prepareTables() throws SQLException {
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
 		stmt.execute("CREATE TABLE IF NOT EXISTS emotes(" +
@@ -102,6 +147,13 @@ public class EmoteAnalyser {
 				"timestamp BIGINT NOT NULL," +
 				"occurrences BIGINT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(username, emote, timestamp))");
+
+		stmt.execute("CREATE TABLE IF NOT EXISTS users(" +
+				"username VARCHAR(32) NOT NULL," +
+				"timestamp BIGINT NOT NULL," +
+				"message_count BIGINT NOT NULL DEFAULT 0," +
+				"PRIMARY KEY(username, timestamp))");
+
 		stmt.close();
 		conn.close();
 	}

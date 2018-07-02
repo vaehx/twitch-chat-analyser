@@ -1,4 +1,4 @@
-package de.prkz.twitch.emoteanalyser;
+package de.prkz.twitch.emoteanalyser.emotes;
 
 public class Emote {
 	public long timestamp;
