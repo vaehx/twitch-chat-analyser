@@ -2,6 +2,8 @@ package de.prkz.twitch.emoteanalyser.emotes;
 
 import de.prkz.twitch.emoteanalyser.Message;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.RichFlatMapFunction;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,7 +15,7 @@ import java.sql.Statement;
 import java.util.HashSet;
 import java.util.Set;
 
-public class EmoteExtractor implements FlatMapFunction<Message, Emote> {
+public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteExtractor.class);
 
@@ -25,6 +27,15 @@ public class EmoteExtractor implements FlatMapFunction<Message, Emote> {
 
 	public EmoteExtractor(String jdbcUrl) {
 		this.jdbcUrl = jdbcUrl;
+	}
+
+	@Override
+	public void open(Configuration parameters) throws Exception {
+		fetchEmotes();
+		lastEmoteFetch = System.currentTimeMillis();
+
+		for (String emote : emotes)
+			LOG.info(emote);
 	}
 
 	@Override
