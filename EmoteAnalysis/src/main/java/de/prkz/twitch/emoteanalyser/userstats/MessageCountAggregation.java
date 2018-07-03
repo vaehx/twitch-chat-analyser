@@ -71,7 +71,7 @@ public class MessageCountAggregation
 		stats.timestamp = context.window().getEnd();
 		collector.collect(stats);
 
-		LOG.info("user: " + username + ", messages: " + stats.messageCount);
+		//LOG.info("user: " + username + ", messages: " + stats.messageCount);
 
 		userStatsState.update(stats);
 	}

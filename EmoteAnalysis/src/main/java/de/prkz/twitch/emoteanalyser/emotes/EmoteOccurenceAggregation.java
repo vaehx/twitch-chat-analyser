@@ -71,7 +71,7 @@ public class EmoteOccurenceAggregation
 		occurences.timestamp = context.window().getEnd();
 		collector.collect(occurences);
 
-		LOG.info("emote: " + occurences.emote + ", occurrences: " + occurences.occurrences);
+		//LOG.info("emote: " + occurences.emote + ", occurrences: " + occurences.occurrences);
 
 		occurencesState.update(occurences);
 	}
