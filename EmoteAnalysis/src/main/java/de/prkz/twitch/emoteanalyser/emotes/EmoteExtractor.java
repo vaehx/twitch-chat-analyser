@@ -20,8 +20,8 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteExtractor.class);
 
 	private static final long EMOTE_TABLE_TIMEOUT_MS = 20000;
-	private transient long lastEmoteFetch = 0;
-	private transient Set<String> emotes = new HashSet<>();
+	private transient long lastEmoteFetch;
+	private transient Set<String> emotes;
 
 	private String jdbcUrl;
 
@@ -31,6 +31,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
+		emotes = new HashSet<>();
 		fetchEmotes();
 		lastEmoteFetch = System.currentTimeMillis();
 
