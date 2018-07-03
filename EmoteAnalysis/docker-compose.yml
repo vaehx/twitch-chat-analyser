@@ -1,15 +1,30 @@
 version: "2.2"
 
 services:
-  flink:
+  flink-jobmanager:
     image: flink
-    command: local
-    container_name: flink
+    command: jobmanager
+    container_name: flink-jobmanager
     expose:
       - "6123"
     ports:
       - "8081:8081"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     links:
+      - db
+  
+  flink-taskmanager:
+    image: flink
+    command: taskmanager
+    container_name: flink-taskmanager    
+    ports:
+      - "6121"
+      - "6122"
+    environment:
+      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    links:
+      - flink-jobmanager
       - db
 
   db:

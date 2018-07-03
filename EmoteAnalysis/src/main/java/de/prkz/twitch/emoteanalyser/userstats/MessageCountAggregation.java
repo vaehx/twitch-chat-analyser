@@ -1,7 +1,7 @@
 package de.prkz.twitch.emoteanalyser.userstats;
 
 import de.prkz.twitch.emoteanalyser.Message;
-import de.prkz.twitch.emoteanalyser.emotes.OccurenceAggregation;
+import de.prkz.twitch.emoteanalyser.emotes.UserEmoteOccurenceAggregation;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeHint;
@@ -21,7 +21,7 @@ import java.sql.Statement;
 public class MessageCountAggregation
 		extends ProcessWindowFunction<Message, UserStats, String, TimeWindow> {
 
-	private static final Logger LOG = LoggerFactory.getLogger(OccurenceAggregation.class);
+	private static final Logger LOG = LoggerFactory.getLogger(UserEmoteOccurenceAggregation.class);
 
 	private transient ValueState<UserStats> userStatsState;
 	private transient Connection conn;

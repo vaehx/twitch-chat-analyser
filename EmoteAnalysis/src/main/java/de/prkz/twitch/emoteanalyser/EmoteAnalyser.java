@@ -1,9 +1,6 @@
 package de.prkz.twitch.emoteanalyser;
 
-import de.prkz.twitch.emoteanalyser.emotes.Emote;
-import de.prkz.twitch.emoteanalyser.emotes.EmoteExtractor;
-import de.prkz.twitch.emoteanalyser.emotes.EmoteOccurences;
-import de.prkz.twitch.emoteanalyser.emotes.OccurenceAggregation;
+import de.prkz.twitch.emoteanalyser.emotes.*;
 import de.prkz.twitch.emoteanalyser.userstats.MessageCountAggregation;
 import de.prkz.twitch.emoteanalyser.userstats.UserStats;
 import org.apache.flink.api.common.functions.MapFunction;
@@ -93,7 +90,7 @@ public class EmoteAnalyser {
 
 
 
-		// Extract words from messages
+		// Extract emotes from messages
 		// Event-Timestamps from Source are preserved
 		DataStream<Emote> emotes = messages
 				.flatMap(new EmoteExtractor())
@@ -105,7 +102,9 @@ public class EmoteAnalyser {
 				})
 				.name("ExtractEmotes");
 
-		DataStream<EmoteOccurences> emoteOccurences = emotes
+
+		// User-Emote Statistics
+		DataStream<UserEmoteOccurences> userEmoteOccurences = emotes
 				.keyBy(new KeySelector<Emote, Tuple2<String, String>>() {
 					@Override
 					public Tuple2<String, String> getKey(Emote emote) throws Exception {
@@ -113,10 +112,9 @@ public class EmoteAnalyser {
 					}
 				})
 				.window(TumblingEventTimeWindows.of(Time.minutes(1)))
-				.process(new OccurenceAggregation(jdbcUrl));
+				.process(new UserEmoteOccurenceAggregation(jdbcUrl));
 
-		// Write occurence counts as timeseries to database
-		JDBCOutputFormat emoteStatsOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
+		JDBCOutputFormat userEmoteStatsOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
 				.setDrivername("org.postgresql.Driver")
 				.setDBUrl(jdbcUrl)
 				.setQuery("INSERT INTO emotes(username, emote, timestamp, occurrences) VALUES(?, ?, ?, ?)")
@@ -124,8 +122,8 @@ public class EmoteAnalyser {
 				.setBatchInterval(1)
 				.finish();
 
-		emoteOccurences
-				.map((MapFunction<EmoteOccurences, Row>) occurrences -> {
+		userEmoteOccurences
+				.map((MapFunction<UserEmoteOccurences, Row>) occurrences -> {
 					Row row = new Row(4);
 					row.setField(0, occurrences.username);
 					row.setField(1, occurrences.emote);
@@ -133,7 +131,38 @@ public class EmoteAnalyser {
 					row.setField(3, occurrences.occurrences);
 					return row;
 				})
+				.writeUsingOutputFormat(userEmoteStatsOutputFormat);
+
+
+		// Total emote statistics
+		DataStream<EmoteOccurences> emoteOccurences = emotes
+				.keyBy(new KeySelector<Emote, String>() {
+					@Override
+					public String getKey(Emote emote) throws Exception {
+						return emote.emote;
+					}
+				})
+				.window(TumblingEventTimeWindows.of(Time.minutes(1)))
+				.process(new EmoteOccurenceAggregation(jdbcUrl));
+
+		JDBCOutputFormat emoteStatsOutputFormat = JDBCOutputFormat.buildJDBCOutputFormat()
+				.setDrivername("org.postgresql.Driver")
+				.setDBUrl(jdbcUrl)
+				.setQuery("INSERT INTO emote_totals(emote, timestamp, occurrences) VALUES(?, ?, ?)")
+				.setSqlTypes(new int[] { Types.VARCHAR, Types.BIGINT, Types.BIGINT })
+				.setBatchInterval(1)
+				.finish();
+
+		emoteOccurences
+				.map((MapFunction<EmoteOccurences, Row>) occurrences -> {
+					Row row = new Row(3);
+					row.setField(0, occurrences.emote);
+					row.setField(1, occurrences.timestamp);
+					row.setField(2, occurrences.occurrences);
+					return row;
+				})
 				.writeUsingOutputFormat(emoteStatsOutputFormat);
+
 
 		env.execute("EmoteAnalysis");
 	}
@@ -147,6 +176,12 @@ public class EmoteAnalyser {
 				"timestamp BIGINT NOT NULL," +
 				"occurrences BIGINT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(username, emote, timestamp))");
+
+		stmt.execute("CREATE TABLE IF NOT EXISTS emote_totals(" +
+				"emote VARCHAR(64) NOT NULL," +
+				"timestamp BIGINT NOT NULL," +
+				"occurrences BIGINT NOT NULL DEFAULT 0," +
+				"PRIMARY KEY(emote, timestamp))");
 
 		stmt.execute("CREATE TABLE IF NOT EXISTS users(" +
 				"username VARCHAR(32) NOT NULL," +
