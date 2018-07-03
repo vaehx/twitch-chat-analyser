@@ -49,6 +49,7 @@ public class EmoteAnalyser {
 		// Twitch chat bot source
 		DataStream<Message> messages = env
 				.addSource(new TwitchSource("moonmoon_ow"))
+				.setParallelism(1) // only one bot!
 				.name("TwitchSource");
 
 
