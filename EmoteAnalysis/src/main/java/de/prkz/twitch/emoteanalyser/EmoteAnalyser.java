@@ -93,7 +93,7 @@ public class EmoteAnalyser {
 		// Extract emotes from messages
 		// Event-Timestamps from Source are preserved
 		DataStream<Emote> emotes = messages
-				.flatMap(new EmoteExtractor())
+				.flatMap(new EmoteExtractor(jdbcUrl))
 				.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
 					@Override
 					public long extractAscendingTimestamp(Emote emote) {
@@ -170,6 +170,20 @@ public class EmoteAnalyser {
 	static void prepareTables() throws SQLException {
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
+
+		/*
+			Emote type:
+				0 - Twitch User
+				1 - Twitch Global
+				2 - BTTV
+				3 - FFZ
+				4 - Emoji
+		 */
+		stmt.execute("CREATE TABLE IF NOT EXISTS emote_table(" +
+				"emote VARCHAR(64) NOT NULL," +
+				"type SMALLINT NOT NULL DEFAULT 0," +
+				"PRIMARY KEY(emote))");
+
 		stmt.execute("CREATE TABLE IF NOT EXISTS emotes(" +
 				"username VARCHAR(32) NOT NULL," +
 				"emote VARCHAR(64) NOT NULL," +

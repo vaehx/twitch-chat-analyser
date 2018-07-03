@@ -23,9 +23,11 @@ public class Emote {
 			/* forsen */
 			"forsenE", "forsenW", "forsenKek", "forsenRedSonic", "forsen1",
 
-			/* Weeb emotes */
+			/* naro */
 			"naroRage", "naroXD", "naroStaryn", "naroWhat", "naroGasm", "naroSmug",
 			"naroThug", "naroSad", "naroEh", "naroGold", "naroWink", "naroNyrats",
+
+			/* nightblue */
 			"nb3W",
 
 			/* Global Twitch emotes */
@@ -36,7 +38,10 @@ public class Emote {
 			"LuL", "pepeD", "FeelsGoodMan", "VapeNation", "FeelsBirthdayMan", "D:", "NaM",
 			"PepePls", "lulWut", "FeelsWeirdMan", "monkaS", "monkaMEGA", "monkaSHAKE",
 			"pepoCheer", "Clap", "Clap2", "HYPERCLAP", "HYPEROMEGAPOGGERS", "gachiBASS", "ZOINKS",
-			"ppHop", "HYPERLUL", "TriKool", "CiGrip",
+			"ppHop", "HYPERLUL", "TriKool", "CiGrip", "pepeBASS",
+
+			/* FFZ */
+			"AYAYA",
 
 			/* Emojis */
 			":)",
