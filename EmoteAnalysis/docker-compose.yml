@@ -23,6 +23,9 @@ services:
       - "6122"
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+    volumes:
+      - ./flink-conf/log4j-console.properties:/opt/flink/conf/log4j-console.properties
+      - ./flink-conf/logback-console.xml:/opt/flink/conf/logback-console.properties
     links:
       - flink-jobmanager
       - db
