@@ -27,7 +27,7 @@ class MainController implements ControllerProviderInterface
 			$stmt = $db->query("SELECT MAX(timestamp) FROM emotes");
 			$latestTimestamp = $stmt->fetch()[0];
 			
-			$shownMinutes = $request->query->get('shownMinutes', 5 * 60);
+			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
 			$earliestTimestamp = $latestTimestamp - $shownMinutes * 60 * 1000;
 
 			// Get emote statistics
