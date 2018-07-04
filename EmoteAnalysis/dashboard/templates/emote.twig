@@ -5,16 +5,59 @@
 
 <h2>Emote '{{ emote }}'</h2>
 
+<p>
+	Occurrences (emotes): {{ totalOccurrences }}<br />
+	Occurrences (emote_totals): {{ totalOccurrences2 }}
+</p>
+
+<div id="emote-stats-chart" style="width:900px; height:300px"></div>
+
+<script type="text/javascript">
+	function populateEmoteChartData() {
+		var chartData = [
+			[ 'Time', '{{ emote }}' ]
+			{%- for stat in stats -%}
+			,[new Date({{ stat.timestamp }}),{{ stat.occurrences }}]
+			{%- endfor -%}
+		];
+		return chartData;
+	}
+
+	function drawCharts() {
+		var chartData = populateEmoteChartData();
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('emote-stats-chart'));
+		var emoteChartOptions = {
+			vAxis: {
+				gridlines: {
+					count: 10
+				},
+				viewWindow: {
+					min: Math.max({{ minOccurrences }} - 500, 0)
+				},
+				viewWindowMode: "explicit"
+			}
+		};
+		$.extend(true, emoteChartOptions, chartOptions);
+		console.debug(emoteChartOptions);
+		chart.draw(data, emoteChartOptions);
+	}
+</script>
+
 <h3>Leaderboard</h3>
 <table>
 	<tr>
+		<th>Rank</th>
 		<th>User</th>
 		<th>Occurrences</th>
+		<th>Contribution</th>
 	</tr>
 {% for user in leaderboard %}
 	<tr>
+		<td align="right">{{ loop.index }}.</td>
 		<td><a href="{{ path('emote_user', { emote: emote, username: user.username }) }}">{{ user.username }}</a></td>
 		<td>{{ user.occurrences }}</td>
+		<td>{{ user.percentage|number_format(2) }}%</td>
 	</tr>
 {% endfor %}
 </table>

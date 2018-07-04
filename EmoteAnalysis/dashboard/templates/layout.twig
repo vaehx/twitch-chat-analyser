@@ -4,19 +4,69 @@
 	<meta charset="utf-8">
 	<title>Twitch Dashboard</title>
 	<style type="text/css">
+		html {
+			background-color: #222;
+		}
 		body {
 			font-family: Arial;
+			color: #ccc;
+		}
+
+		a:link, a:visited {
+			text-decoration: none;
+			color: #6ac;
+		}
+		a:hover {
+			color: #8be;
 		}
 
 		.user-row {
 			display: inline-block;
+		}
+
+		table th {
+			text-align: left;
+		}
+		table th, table td {
+			padding-left: 5px;
+			padding-right: 5px;
 		}
 	</style>
 	<script type="text/javascript" src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
 	<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 </head>
 <body>
+
+	<script type="text/javascript">
+		// Dummy function. Can be overwritten in template that want to draw charts
+		function drawCharts() {}
+	</script>
+
 	<h1>Twitch Dashboard</h1>
 	{% block content %}{% endblock %}
+
+	<script type="text/javascript">
+		google.charts.load('current', {'packages':['corechart']});
+		google.charts.setOnLoadCallback(drawCharts);
+
+		var chartOptions = {
+			backgroundColor: '#222',
+			hAxis: {
+				textStyle: { color: '#aaa' },
+				gridlines: { color: '#444' }
+			},
+			vAxis: {
+				textStyle: { color: '#aaa' },
+				gridlines: { color: '#444' }
+			},
+			legendTextStyle: { color: '#aaa' },
+			chartArea: {
+				left: 80,
+				top: 15,
+				width: '75%',
+				height: '80%'
+			}
+		};
+	</script>
 </body>
 </html>

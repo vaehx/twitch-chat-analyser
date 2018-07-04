@@ -1,0 +1,23 @@
+{% extends 'layout.twig' %}
+{% block content %}
+
+<a href="{{ path('index') }}">&larr; Back to overview</a>
+
+<h2>User leaderboard</h2>
+<h3>Leaderboard</h3>
+<table>
+	<tr>
+		<th>Rank</th>
+		<th>User</th>
+		<th>Messages</th>
+	</tr>
+{% for user in users %}
+	<tr>
+		<td align="right">{{ loop.index }}.</td>
+		<td><a href="{{ path('user', { username: user.username }) }}">{{ user.username }}</a></td>
+		<td>{{ user.message_count }}</td>
+	</tr>
+{% endfor %}
+</table>
+
+{% endblock %}

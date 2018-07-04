@@ -1,13 +1,6 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<h2>Emotes</h2>
-{% for emote in emotes %}
-	<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a>
-{% endfor %}
-
-<h2>Overview</h2>
-
 <p>
 	<form action="{{ path('index') }}" method="GET">
 		Show last <input type="text" value="{{ shownMinutes }}" name="shownMinutes" pattern="[0-9]+" /> minutes
@@ -15,44 +8,87 @@
 	</form>
 </p>
 
-<div id="comparison-chart" style="width:1200px; height:500px"></div>
-
 <script type="text/javascript">
-	google.charts.load('current', {'packages':['corechart']});
-	google.charts.setOnLoadCallback(drawCharts);
-
-	var chartData = [['Time', 'moon2MLEM', 'moon2S', 'moon2A', 'moon2N', 'PogChamp']];
-	function populateData() {
-		{% for stat in mlemStats %}
-			chartData.push([new Date({{ stat.timestamp }}), {{ stat.occurrences }}, null, null, null, null]);
-		{% endfor %}
-		{% for stat in smileStats %}
-			chartData.push([new Date({{ stat.timestamp }}), null, {{ stat.occurrences }}, null, null, null]);
-		{% endfor %}
-		{% for stat in angryStats %}
-			chartData.push([new Date({{ stat.timestamp }}), null, null, {{ stat.occurrences }}, null, null]);
-		{% endfor %}
-		{% for stat in neutStats %}
-			chartData.push([new Date({{ stat.timestamp }}), null, null, null, {{ stat.occurrences }}, null]);
-		{% endfor %}
-		{% for stat in pogChampStats %}
-			chartData.push([new Date({{ stat.timestamp }}), null, null, null, null, {{ stat.occurrences }}]);
-		{% endfor %}
-	}
-
 	function drawCharts() {
-		populateData();
-		var data = google.visualization.arrayToDataTable(chartData);
-		var chart = new google.visualization.LineChart(document.getElementById('comparison-chart'));
-		chart.draw(data, {
-			chartArea: {
-				left: 40,
-				top: 15,
-				width: '75%',
-				height: '80%'
-			}
-		});
+		drawEmoteCharts();
+		drawUserCharts();
 	}
 </script>
+
+<h2>Emotes</h2>
+{% for emote in emotes %}
+	<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a>
+{% endfor %}
+
+<h2>Emote overview</h2>
+<p><a href="{{ path('emotes') }}">Emote leaderboard</a></p>
+<div id="emote-stats-chart" style="width:1000px; height:400px"></div>
+
+<script type="text/javascript">
+	function populateEmoteChartData() {
+		var chartData = [
+			[ 'Time'{% for emote in emoteStats|keys %}, '{{ emote }}'{% endfor %} ]
+		{% for emote, emoteStat in emoteStats %}
+			{%- for stat in emoteStat -%}
+			,[new Date({{ stat.timestamp }}){% for emote2 in emoteStats|keys %},{% if emote2 == emote %}{{ stat.occurrences }}{% else %}null{% endif %}{% endfor %}]
+			{%- endfor -%}
+		{% endfor %}
+		];
+		return chartData;
+	}
+
+	function drawEmoteCharts() {
+		var chartData = populateEmoteChartData();
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('emote-stats-chart'));
+		var emoteChartOptions = {
+			vAxis: {
+				gridlines: {
+					count: 10
+				},
+				viewWindow: {
+					min: Math.max(0, {{ emoteStatsMinOccurrences }} - 500)
+				},
+				viewWindowMode: "explicit"
+			}
+		};
+		$.extend(true, emoteChartOptions, chartOptions);
+		console.debug(emoteChartOptions);
+		chart.draw(data, emoteChartOptions);
+	}
+</script>
+
+
+
+
+<h2>User message count overview</h2>
+
+<p>
+	<a href="{{ path('users') }}">User Leaderboard</a>
+</p>
+
+<div id="user-stats-chart" style="width:1000px; height:400px"></div>
+
+<script type="text/javascript">
+	function populateUsersData() {
+		var chartData = [
+			[ 'Time'{% for username in topChatters|keys %}, '{{ username }}'{% endfor %} ]
+		{% for username, userStat in topChatters %}
+			{%- for stat in userStat -%}
+			,[new Date({{ stat.timestamp }}){% for username2 in topChatters|keys %},{% if username2 == username %}{{ stat.message_count }}{% else %}null{% endif %}{% endfor %}]
+			{%- endfor -%}
+		{% endfor %}
+		];
+		return chartData;
+	}
+
+	function drawUserCharts() {
+		var chartData = populateUsersData();
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('user-stats-chart'));
+		chart.draw(data, chartOptions);
+	}
+</script>
+
 
 {% endblock %}

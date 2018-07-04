@@ -1,46 +1,68 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<a href="{{ path('emote', { emote: emote }) }}">&larr; Back to emote '{{ emote }}'</a>
+<a href="{{ path('users') }}">&larr; Back to user leaderboard</a>
 
-<h2>Emote '{{ emote }}' by user '{{ username }}'</h2>
+<h2>User '{{ username }}'</h2>
 
-<b>{{ username }}</b>
+<h3>Message count</h3>
 <div id="user-graph" style="width:800px; height:300px"></div>
-
-
 <script type="text/javascript">
-	var chartData = [];
-	function populateData() {
-		chartData = [
-			['Time', 'Occurences'],
+	function drawMessageCountChart() {
+		var chartData = [
+			['Time', 'Messages'],
 			{% for stat in stats %}
-				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+				[new Date({{ stat.timestamp }}), {{ stat.message_count }}],
 			{% endfor %}
 		];
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('user-graph'));
+		chart.draw(data, chartOptions);
+	}
+</script>
+
+<h3>Used emotes</h3>
+
+<div id="user-emotes-chart" style="width: 600px; height: 300px;"></div>
+
+<script type="text/javascript">
+	function drawEmotesChart() {
+		var chartData = [
+			['Emote', 'Usages'],
+		{% set otherCount = 0 %}
+		{% for emote, numUsed in emoteUsages %}
+			{% if loop.index <= 5 %}
+				['{{ emote }}', {{ numUsed }}],
+			{% else %}
+				{% set otherCount = otherCount + 1 %}
+			{% endif %}
+		{% endfor %}
+			['Other', {{ otherCount }}]
+		];
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.PieChart(document.getElementById('user-emotes-chart'));
+		chart.draw(data, chartOptions);
 	}
 </script>
 
 <script type="text/javascript">
-	google.charts.load('current', {'packages':['corechart']});
-	google.charts.setOnLoadCallback(drawCharts);
-
 	function drawCharts() {
-		populateData();
-
-		var data = google.visualization.arrayToDataTable(chartData);
-		var chart = new google.visualization.LineChart(document.getElementById('user-graph'));
-		chart.draw(data, {
-			legend: 'none',
-			chartArea: {
-				left: 40,
-				top: 15,
-				width: '80%',
-				height: '80%'
-			}
-		});
+		drawMessageCountChart();
+		drawEmotesChart();
 	}
 </script>
 
+<table>
+	<tr>
+		<th>Emote</th>
+		<th>Times used</th>
+	</tr>
+	{% for emote, numUsed in emoteUsages %}
+	<tr>
+		<td><a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a></td>
+		<td>{{ numUsed }}</td>
+	</tr>
+	{% endfor %}
+</table>
 
 {% endblock %}
