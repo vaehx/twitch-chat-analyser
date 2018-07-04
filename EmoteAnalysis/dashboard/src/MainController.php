@@ -126,7 +126,7 @@ class MainController implements ControllerProviderInterface
 				// Calculate standard deviation of emote usages by users
 				$stmt2 = $db->query("SELECT MAX(occurrences) FROM emotes WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(occurrences)");
 				$occurrences = array_map(function($row) { return $row[0]; }, $stmt2->fetchAll());
-				$emotes[$emote]['standardDeviation'] = self::standardDeviation($occurrences);
+				$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);
 			}
 
 			// Sort by real occurrences
@@ -254,14 +254,16 @@ class MainController implements ControllerProviderInterface
 		return "('" . implode("','", self::EXCLUDED_CHATTERS) . "')";
 	}
 
-	static function standardDeviation($array)
+	// Calculate factor describing the deviation from the given value
+	static function getDeviationFrom($array, $val)
 	{
-		// square root of sum of squares devided by N-1
 		$n = count($array);
 		if ($n <= 1)
 			return null;
 
-		$sum_array = array_fill(0, $n, (array_sum($array) / $n));
-		return sqrt(array_sum(array_map(function($x, $mean) { return pow($x - $mean, 2); }, $array, $sum_array)) / ($n - 1));
+		// sum((val - x)^2) for each x in array
+		$val = max($array);
+		$variance = array_sum(array_map(function($x) use($val) { return pow($x, 2); }, $array)) / ($n - 1);
+		return sqrt($variance);
 	}
 }
