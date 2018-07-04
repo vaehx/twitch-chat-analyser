@@ -32,14 +32,28 @@ class MainController implements ControllerProviderInterface
 
 			// Get emote statistics
 			$emoteStats = [];
-			$includedEmotes = ['moon2MLEM', 'moon2S', 'moon2A', 'moon2N', 'PogChamp'];
+			$visualizedEmotes = ['moon2MLEM', 'moon2S', 'moon2A', 'moon2N', 'PogChamp'];
 			$minEmoteOccurrences = PHP_INT_MAX;
-			foreach ($includedEmotes as $emote)
+			foreach ($visualizedEmotes as $emote)
 			{
 				$stmt = $db->query("SELECT timestamp, occurrences FROM emote_totals "
 								. " WHERE emote='$emote' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
-				$emoteStats[$emote] = $stmt->fetchAll();
-				$firstOccurrences = $emoteStats[$emote][0]['occurrences'];
+				if ($stmt === false)
+					continue;
+
+				if ($stmt->rowCount() > 0)
+				{
+					$emoteStats[$emote] = $stmt->fetchAll();
+					$firstOccurrences = $emoteStats[$emote][0]['occurrences'];
+				}
+				else
+				{
+					$emoteStats[$emote] = [
+						['timestamp' => $earliestTimestamp, 'occurrences' => 0],
+						['timestamp' => $latestTimestamp, 'occurrences' => 0]
+					];
+				}
+
 				if ($firstOccurrences < $minEmoteOccurrences)
 					$minEmoteOccurrences = $firstOccurrences;
 			}
