@@ -51,7 +51,7 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 				"channel VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
 				"message_count BIGINT NOT NULL," +
-				"PRIMARY KEY(name, timestamp))");
+				"PRIMARY KEY(channel, timestamp))");
 	}
 
 	@Override
