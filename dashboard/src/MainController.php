@@ -31,10 +31,8 @@ class MainController implements ControllerProviderInterface
 				$emotes[] = $row[0];
 
 			// Determine visualized window bounds
-			$stmt = $db->query("SELECT MAX(timestamp) FROM ".self::EMOTE_STATS_TABLE);
-			$latestTimestamp = $stmt->fetch()[0];
-			
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
+			$latestTimestamp = round(microtime(true) * 1000);
 			$earliestTimestamp = $latestTimestamp - $shownMinutes * 60 * 1000;
 
 			// Get emote statistics
@@ -64,6 +62,10 @@ class MainController implements ControllerProviderInterface
 				if ($firstOccurrences < $minEmoteOccurrences)
 					$minEmoteOccurrences = $firstOccurrences;
 			}
+
+			// Get total message count
+			$stmt = $db->query("SELECT timestamp, message_count FROM channel_stats WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY timestamp ASC");
+			$channelStats = $stmt->fetchAll();
 
 			// Get top N users stats in selected time window
 			$topN = 10;
@@ -96,6 +98,7 @@ class MainController implements ControllerProviderInterface
 			return $app['twig']->render('index.twig', [
 				'emotes' => $emotes,
 				'shownMinutes' => $shownMinutes,
+				'channelStats' => $channelStats,
 				'emoteStats' => $emoteStats,
 				'emoteStatsMinOccurrences' => $minEmoteOccurrences,
 				'topChatters' => $topChatters]);

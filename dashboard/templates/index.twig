@@ -10,8 +10,9 @@
 
 <script type="text/javascript">
 	function drawCharts() {
-		drawEmoteCharts();
-		drawUserCharts();
+		drawEmoteChart();
+		drawTotalsChart();
+		drawUserChart();
 	}
 </script>
 
@@ -37,7 +38,7 @@
 		return chartData;
 	}
 
-	function drawEmoteCharts() {
+	function drawEmoteChart() {
 		var chartData = populateEmoteChartData();
 		var data = google.visualization.arrayToDataTable(chartData);
 		var chart = new google.visualization.LineChart(document.getElementById('emote-stats-chart'));
@@ -57,6 +58,26 @@
 		chart.draw(data, emoteChartOptions);
 	}
 </script>
+
+
+<h2>Total messages</h2>
+
+<div id="total-stats-chart" style="width:1000px; height:400px"></div>
+
+<script type="text/javascript">
+	function drawTotalsChart() {
+		var chartData = [
+			[ 'Time', 'Messages' ]
+			{%- for stat in channelStats -%}
+			,[new Date({{ stat.timestamp }}), {{ stat.message_count }}]
+			{%- endfor -%}
+		];
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('total-stats-chart'));
+		chart.draw(data, chartOptions);
+	}
+</script>
+
 
 
 
@@ -82,7 +103,7 @@
 		return chartData;
 	}
 
-	function drawUserCharts() {
+	function drawUserChart() {
 		var chartData = populateUsersData();
 		var data = google.visualization.arrayToDataTable(chartData);
 		var chart = new google.visualization.LineChart(document.getElementById('user-stats-chart'));
