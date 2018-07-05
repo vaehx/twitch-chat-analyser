@@ -22,12 +22,19 @@ public class TwitchSource extends RichSourceFunction<Message> {
 
 	private String[] channels;
 
+	/**
+	 * @param channels must start with '#'
+	 */
 	public TwitchSource(String[] channels) {
 		this.channels = channels;
 	}
 
 	@Override
 	public void run(SourceContext<Message> sourceContext) throws Exception {
+
+		for (String channel : channels)
+			LOG.info("Will join channel " + channel);
+
 		org.pircbotx.Configuration config = new org.pircbotx.Configuration.Builder()
 				.setName("justinfan92834") // TODO: Make random?
 				.addServer("irc.chat.twitch.tv", 6667)

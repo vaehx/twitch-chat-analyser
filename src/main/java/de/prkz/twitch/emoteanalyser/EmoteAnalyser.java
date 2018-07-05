@@ -35,8 +35,7 @@ public class EmoteAnalyser {
 		String jdbcUrl = args[0];
 		String[] channels = new String[args.length - 1];
 		for (int i = 1; i < args.length; ++i)
-			channels[i - 1] = args[i];
-
+			channels[i - 1] = "#" + args[i];
 
 		// Prepare database
 		Connection conn = DriverManager.getConnection(jdbcUrl);
