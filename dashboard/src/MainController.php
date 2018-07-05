@@ -9,6 +9,11 @@ use Symfony\Component\HttpFoundation\Request;
 class MainController implements ControllerProviderInterface
 {
 	const EXCLUDED_CHATTERS = ["nightbot", "notheowner", "_streamelements_", "scootycoolguy"];
+	
+	const CHANNEL_STATS_TABLE = "channel_stats";
+	const USER_STATS_TABLE = "user_stats";
+	const EMOTE_STATS_TABLE = "emote_stats";
+	const USER_EMOTE_STATS_TABLE = "user_emote_stats";
 
 	public function connect(SilexApplication $app)
 	{
@@ -19,12 +24,14 @@ class MainController implements ControllerProviderInterface
 		 * Emote statistics overview
 		 */
 		$route->get('/', function(Request $request) use($app, $db) {
-			$stmt = $db->query("SELECT DISTINCT emote FROM emotes ORDER BY emote ASC");
+			// Get emote list
+			$stmt = $db->query("SELECT DISTINCT emote FROM ".self::EMOTE_STATS_TABLE." ORDER BY emote ASC");
 			$emotes = [];
 			while ($row = $stmt->fetch())
 				$emotes[] = $row[0];
 
-			$stmt = $db->query("SELECT MAX(timestamp) FROM emotes");
+			// Determine visualized window bounds
+			$stmt = $db->query("SELECT MAX(timestamp) FROM ".self::EMOTE_STATS_TABLE);
 			$latestTimestamp = $stmt->fetch()[0];
 			
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
@@ -36,7 +43,7 @@ class MainController implements ControllerProviderInterface
 			$minEmoteOccurrences = PHP_INT_MAX;
 			foreach ($visualizedEmotes as $emote)
 			{
-				$stmt = $db->query("SELECT timestamp, occurrences FROM emote_totals "
+				$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." "
 								. " WHERE emote='$emote' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
 				if ($stmt === false)
 					continue;
@@ -61,7 +68,7 @@ class MainController implements ControllerProviderInterface
 			// Get top N users stats in selected time window
 			$topN = 10;
 			$additional_chatters = [];
-			$stmt = $db->query("SELECT username FROM users WHERE timestamp >= $earliestTimestamp GROUP BY username ORDER BY MAX(message_count) DESC LIMIT " . ($topN + count(self::EXCLUDED_CHATTERS)));
+			$stmt = $db->query("SELECT username FROM ".self::USER_STATS_TABLE." WHERE timestamp >= $earliestTimestamp GROUP BY username ORDER BY MAX(message_count) DESC LIMIT " . ($topN + count(self::EXCLUDED_CHATTERS)));
 			$topChatterUsernames = [];
 			while ($row = $stmt->fetch())
 				$topChatterUsernames[] = $row[0];
@@ -78,7 +85,7 @@ class MainController implements ControllerProviderInterface
 				if (in_array($username, self::EXCLUDED_CHATTERS))
 					continue;
 
-				$stmt2 = $db->query("SELECT timestamp, message_count FROM users WHERE username='$username' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
+				$stmt2 = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE." WHERE username='$username' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
 				if ($stmt2->rowCount() > 0)
 					$topChatters[$username] = $stmt2->fetchAll();
 				
@@ -99,7 +106,7 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/emotes', function(Request $request) use($app, $db) {
 			// Real occurrences (including all chatters)
-			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM emote_totals"
+			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::EMOTE_STATS_TABLE.""
 							. " GROUP BY emote ORDER BY MAX(occurrences) DESC");
 			$emotes = [];
 			while ($row = $stmt->fetch())
@@ -112,7 +119,7 @@ class MainController implements ControllerProviderInterface
 			}
 
 			// Leaderboard without excluded chatters
-			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM emotes"
+			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
 							. " WHERE username NOT IN " . self::getExcludedChattersTuple()
 							. " GROUP BY emote ORDER BY MAX(occurrences) DESC");
 			while ($row = $stmt->fetch())
@@ -124,7 +131,7 @@ class MainController implements ControllerProviderInterface
 				$emotes[$emote]['occurrences'] = $row['occurrences'];
 
 				// Calculate standard deviation of emote usages by users
-				$stmt2 = $db->query("SELECT MAX(occurrences) FROM emotes WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(occurrences)");
+				$stmt2 = $db->query("SELECT MAX(occurrences) FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(occurrences)");
 				$occurrences = array_map(function($row) { return $row[0]; }, $stmt2->fetchAll());
 				$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);
 			}
@@ -149,18 +156,18 @@ class MainController implements ControllerProviderInterface
 		 * User Leaderboard for an emote
 		 */
 		$route->get('/emote/{emote}', function($emote) use($app, $db) {
-			$stmt = $db->query("SELECT timestamp, occurrences FROM emote_totals WHERE emote='$emote' ORDER BY timestamp ASC");
+			$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." WHERE emote='$emote' ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 			$minOccurrences = $stats[0]['occurrences'];
 
 			// Get total occurrences
 			$stmt = $db->query("SELECT SUM(occurrences) FROM ("
-							. "   SELECT MAX(occurrences) AS occurrences FROM emotes"
+							. "   SELECT MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
 							. "   WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username) a");
 			$totalOccurences = $stmt->fetch()[0];
 
 			// Leaderboard
-			$stmt = $db->query("SELECT username, MAX(occurrences) AS occurrences FROM emotes"
+			$stmt = $db->query("SELECT username, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
 							. " WHERE emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple()
 							. " GROUP BY username ORDER BY MAX(occurrences) DESC LIMIT 1000");
 			$leaderboard = [];
@@ -183,7 +190,7 @@ class MainController implements ControllerProviderInterface
 		 * Per-user stats for an emote
 		 */
 		$route->get('/emote/{emote}/user/{username}', function($emote, $username) use($app, $db) {
-			$stmt = $db->query("SELECT timestamp, occurrences FROM emotes WHERE emote='$emote' AND username='$username' ORDER BY timestamp ASC");
+			$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username='$username' ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 			
 			return $app['twig']->render('user_emote.twig', [
@@ -198,7 +205,7 @@ class MainController implements ControllerProviderInterface
 		$route->get('/users', function() use($app, $db) {
 			$excluded_users = ["nightbot"];
 			
-			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM users GROUP BY username ORDER BY MAX(message_count) DESC");
+			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(message_count) DESC");
 			$leaderboard = [];
 			while ($row = $stmt->fetch())
 			{
@@ -216,10 +223,10 @@ class MainController implements ControllerProviderInterface
 		 * User message count
 		 */
 		$route->get('/user/{username}', function($username) use($app, $db) {
-			$stmt = $db->query("SELECT timestamp, message_count FROM users WHERE username='$username' ORDER BY timestamp ASC");
+			$stmt = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE." WHERE username='$username' ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 
-			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM emotes WHERE username='$username' GROUP BY emote ORDER BY MAX(occurrences) DESC");
+			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE username='$username' GROUP BY emote ORDER BY MAX(occurrences) DESC");
 			$emoteUsages = [];
 			while ($row = $stmt->fetch())
 				$emoteUsages[$row['emote']] = $row['occurrences'];
@@ -238,8 +245,8 @@ class MainController implements ControllerProviderInterface
 		$sql = "SELECT timestamp, SUM(max) AS occurrences"
 			. " FROM ("
 			. "   SELECT t.timestamp, username, MAX(occurrences)"
-			. "   FROM (SELECT DISTINCT timestamp FROM emotes WHERE emote='$emote' AND timestamp >= $earliestTimestamp) t"
-			. "   INNER JOIN (SELECT * FROM emotes WHERE emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple() . ") e"
+			. "   FROM (SELECT DISTINCT timestamp FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND timestamp >= $earliestTimestamp) t"
+			. "   INNER JOIN (SELECT * FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple() . ") e"
 			. "   ON e.timestamp <= t.timestamp"
 			. "   GROUP BY t.timestamp, username) a"
 			. " GROUP BY timestamp"

@@ -7,6 +7,7 @@ import org.pircbotx.hooks.events.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Arrays;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -19,19 +20,19 @@ public class TwitchSource extends RichSourceFunction<Message> {
 	private transient final Lock lock = new ReentrantLock();
 	private transient final Condition cancelled = lock.newCondition();
 
-	private String channel;
+	private String[] channels;
 
-	public TwitchSource(String channel) {
-		this.channel = channel;
+	public TwitchSource(String[] channels) {
+		this.channels = channels;
 	}
 
 	@Override
 	public void run(SourceContext<Message> sourceContext) throws Exception {
 		org.pircbotx.Configuration config = new org.pircbotx.Configuration.Builder()
-				.setName("justinfan92834")
+				.setName("justinfan92834") // TODO: Make random?
 				.addServer("irc.chat.twitch.tv", 6667)
 				.addListener(new Bot(sourceContext))
-				.addAutoJoinChannel("#" + channel)
+				.addAutoJoinChannels(Arrays.asList(channels))
 				.setAutoReconnect(true)
 				.buildConfiguration();
 		bot = new PircBotX(config);

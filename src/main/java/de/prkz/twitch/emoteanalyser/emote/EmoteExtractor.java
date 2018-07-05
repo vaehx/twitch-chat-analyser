@@ -1,7 +1,6 @@
-package de.prkz.twitch.emoteanalyser.emotes;
+package de.prkz.twitch.emoteanalyser.emote;
 
 import de.prkz.twitch.emoteanalyser.Message;
-import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.util.Collector;
