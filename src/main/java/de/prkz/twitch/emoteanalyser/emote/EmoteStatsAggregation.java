@@ -1,6 +1,9 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
+import de.prkz.twitch.emoteanalyser.channel.ChannelStats;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.windowing.time.Time;
@@ -16,6 +19,11 @@ public class EmoteStatsAggregation
 
 	public EmoteStatsAggregation(String jdbcUrl, Time aggregationInterval) {
 		super(jdbcUrl, aggregationInterval);
+	}
+
+	@Override
+	protected TypeInformation<EmoteStats> getStatsTypeInfo() {
+		return TypeInformation.of(new TypeHint<EmoteStats>() {});
 	}
 
 	@Override

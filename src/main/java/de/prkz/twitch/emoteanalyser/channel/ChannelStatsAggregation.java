@@ -2,6 +2,8 @@ package de.prkz.twitch.emoteanalyser.channel;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
+import org.apache.flink.api.common.typeinfo.TypeHint;
+import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.types.Row;
@@ -76,6 +78,11 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 	@Override
 	public void close() throws Exception {
 		conn.close();
+	}
+
+	@Override
+	protected TypeInformation<ChannelStats> getStatsTypeInfo() {
+		return TypeInformation.of(new TypeHint<ChannelStats>() {});
 	}
 
 	@Override

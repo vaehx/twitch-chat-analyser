@@ -27,17 +27,17 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 	private transient ValueState<STATS> statsState;
 	protected transient Connection conn;
 	private String jdbcUrl;
-	private Time aggregationInterval;
+	private long aggregationInterval;
 
 	public AbstractStatsAggregation(String jdbcUrl, Time aggregationInterval) {
 		this.jdbcUrl = jdbcUrl;
-		this.aggregationInterval = aggregationInterval;
+		this.aggregationInterval = aggregationInterval.toMilliseconds();
 	}
 
 	@Override
 	public void open(Configuration parameters) throws Exception {
 		statsState = getRuntimeContext().getState(new ValueStateDescriptor<>(
-				"stats", TypeInformation.of(new TypeHint<STATS>() {})));
+				"stats", getStatsTypeInfo()));
 
 		conn = DriverManager.getConnection(jdbcUrl);
 	}
@@ -78,7 +78,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
 		inputStream
 				.keyBy(createKeySelector())
-				.window(TumblingEventTimeWindows.of(aggregationInterval))
+				.window(TumblingEventTimeWindows.of(Time.milliseconds(aggregationInterval)))
 				.process(this)
 				.map(new MapFunction<STATS, Row>() {
 					@Override
@@ -88,6 +88,8 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 				})
 				.writeUsingOutputFormat(outputFormat);
 	}
+
+	protected abstract TypeInformation<STATS> getStatsTypeInfo();
 
 	protected abstract KeySelector<INPUT, KEY> createKeySelector();
 
