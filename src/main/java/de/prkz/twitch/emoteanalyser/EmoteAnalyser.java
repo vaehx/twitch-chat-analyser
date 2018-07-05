@@ -185,6 +185,13 @@ public class EmoteAnalyser {
 				"type SMALLINT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(emote))");
 
+		ResultSet emoteCountResult = stmt.executeQuery("SELECT COUNT(emote) FROM emote_table");
+		emoteCountResult.next();
+		if (emoteCountResult.getInt(1) == 0) {
+			// Insert some default emotes, so we have something to track
+			stmt.execute("INSERT INTO emote_table(emote, type) VALUES('Kappa', 1), ('lirikN', 0), ('moon2S', 0);");
+		}
+
 		stmt.execute("CREATE TABLE IF NOT EXISTS emotes(" +
 				"username VARCHAR(32) NOT NULL," +
 				"emote VARCHAR(64) NOT NULL," +
