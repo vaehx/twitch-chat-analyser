@@ -34,4 +34,4 @@ Check your firewall settings for blocked INPUT routes or OUTPUT routes.
 
 ### Error: NoResourceAvailableException: Could not allocate all requires slots within timeout of 300000 ms
 
-Check the "Available Task Slots" Flink Web Panel. By default, the app is configured to use parallelism 1, so you will need at least 4 available task slots. If none are available, make sure your Taskmanager container is running. 
+Check the "Available Task Slots" Flink Web Panel. By default, the app is configured to use parallelism 4, so you will need at least 4 available task slots. If none are available, make sure your Taskmanager container is running. 
