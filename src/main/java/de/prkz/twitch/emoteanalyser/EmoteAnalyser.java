@@ -16,8 +16,6 @@ import java.sql.*;
 public class EmoteAnalyser {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
-	private static String jdbcUrl;
-	private static String[] channels;
 
 	private static final Time AGGREGATION_INTERVAL = Time.minutes(1);
 
@@ -34,8 +32,8 @@ public class EmoteAnalyser {
 			System.exit(1);
 		}
 
-		jdbcUrl = args[0];
-		channels = new String[args.length - 1];
+		String jdbcUrl = args[0];
+		String[] channels = new String[args.length - 1];
 		for (int i = 1; i < args.length; ++i)
 			channels[i - 1] = args[i];
 
@@ -43,15 +41,6 @@ public class EmoteAnalyser {
 		// Prepare database
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
-
-		LOG.info("Preparing output table...");
-		try {
-			prepareEmotesTable(stmt);
-		}
-		catch (Exception ex) {
-			LOG.error("Could not initialize emotes table", ex);
-			System.exit(1);
-		}
 
 
 		// Create stream environment
@@ -79,8 +68,10 @@ public class EmoteAnalyser {
 
 
 		// Extract emotes from messages
+		EmoteExtractor emoteExtractor = new EmoteExtractor(jdbcUrl);
+		emoteExtractor.prepareTable(stmt);
 		DataStream<Emote> emotes = messages
-				.flatMap(new EmoteExtractor(jdbcUrl))
+				.flatMap(emoteExtractor)
 				.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
 					@Override
 					public long extractAscendingTimestamp(Emote emote) {
@@ -104,27 +95,5 @@ public class EmoteAnalyser {
 		conn.close();
 
 		env.execute("EmoteAnalysis");
-	}
-
-	static void prepareEmotesTable(Statement stmt) throws SQLException {
-		/*
-			Emote type:
-				0 - Twitch User
-				1 - Twitch Global
-				2 - BTTV
-				3 - FFZ
-				4 - Emoji
-		 */
-		stmt.execute("CREATE TABLE IF NOT EXISTS emotes(" +
-				"emote VARCHAR(64) NOT NULL," +
-				"type SMALLINT NOT NULL DEFAULT 0," +
-				"PRIMARY KEY(emote))");
-
-		ResultSet emoteCountResult = stmt.executeQuery("SELECT COUNT(emote) FROM emotes");
-		emoteCountResult.next();
-		if (emoteCountResult.getInt(1) == 0) {
-			// Insert some default emotes, so we have something to track
-			stmt.execute("INSERT INTO emotes(emote, type) VALUES('Kappa', 1), ('lirikN', 0), ('moon2S', 0);");
-		}
 	}
 }
