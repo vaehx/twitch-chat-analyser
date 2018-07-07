@@ -4,20 +4,28 @@
 <a href="{{ path('index') }}">&larr; Back to overview</a>
 
 <h2>Emote leaderboard</h2>
+
+<p>
+	<b>Excluded chatters:</b>
+	{% for username in constant('Dashboard\\MainController::EXCLUDED_CHATTERS') %}
+		<a href="{{ path('user', { username: username }) }}">{{ username }}</a>{{ not loop.last ? ', ' }}
+	{% endfor %}
+</p>
+
 <table>
 	<tr>
 		<th>Rank</th>
 		<th>Emote</th>
-		<th><a href="?sortBy=occurrences">Occurrences</a></th>
-		<th><a href="?sortBy=real_occurrences">Real occurrences</a></th>
+		<th><a href="?sortBy=real_occurrences">Total<br />Occurrences</a></th>
+		<th><a href="?sortBy=occurrences">Occurrences w/o <br /> excluded chatters</a></th>
 		<!--<th><a href="?sortBy=standardDeviation">SD</a></th>-->
 	</tr>
 {% for emoteName, emoteStats in emotes %}
 	<tr>
 		<td align="right">{{ loop.index }}.</td>
 		<td><a href="{{ path('emote', { emote: emoteName }) }}">{{ emoteName }}</a></td>
-		<td>{{ emoteStats.occurrences }}</td>
 		<td>{{ emoteStats.real_occurrences }}</td>
+		<td>{{ emoteStats.occurrences }}</td>
 		<!--<td>{{ emoteStats.standardDeviation }}</td>-->
 	</tr>
 {% endfor %}
