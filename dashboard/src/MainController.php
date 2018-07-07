@@ -134,9 +134,10 @@ class MainController implements ControllerProviderInterface
 				$emotes[$emote]['occurrences'] = $row['occurrences'];
 
 				// Calculate standard deviation of emote usages by users
-				$stmt2 = $db->query("SELECT MAX(occurrences) FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(occurrences)");
+				/*$stmt2 = $db->query("SELECT MAX(occurrences) FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(occurrences)");
 				$occurrences = array_map(function($row) { return $row[0]; }, $stmt2->fetchAll());
-				$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);
+				$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);*/
+				$emotes[$emote]['standardDeviation'] = 0;
 			}
 
 			// Sort by real occurrences

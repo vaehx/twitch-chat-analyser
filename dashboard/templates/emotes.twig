@@ -10,7 +10,7 @@
 		<th>Emote</th>
 		<th><a href="?sortBy=occurrences">Occurrences</a></th>
 		<th><a href="?sortBy=real_occurrences">Real occurrences</a></th>
-		<th><a href="?sortBy=standardDeviation">SD</a></th>
+		<!--<th><a href="?sortBy=standardDeviation">SD</a></th>-->
 	</tr>
 {% for emoteName, emoteStats in emotes %}
 	<tr>
@@ -18,7 +18,7 @@
 		<td><a href="{{ path('emote', { emote: emoteName }) }}">{{ emoteName }}</a></td>
 		<td>{{ emoteStats.occurrences }}</td>
 		<td>{{ emoteStats.real_occurrences }}</td>
-		<td>{{ emoteStats.standardDeviation }}</td>
+		<!--<td>{{ emoteStats.standardDeviation }}</td>-->
 	</tr>
 {% endfor %}
 </table>
