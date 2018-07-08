@@ -17,9 +17,12 @@
 </script>
 
 <h2>Emotes</h2>
-{% for emote in emotes %}
-	<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a>
-{% endfor %}
+<p><b>Channel emotes:</b> {% for emote,type in emotes if type == 0 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
+<p><b>Global twitch emotes:</b> {% for emote,type in emotes if type == 1 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
+<p><b>BTTV:</b> {% for emote,type in emotes if type == 2 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
+<p><b>FFZ:</b> {% for emote,type in emotes if type == 3 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
+<p><b>Emoji:</b> {% for emote,type in emotes if type == 4 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
+<p><b>Other:</b> {% for emote,type in emotes if type < 0 or type > 4 %}<a href="{{ path('emote', {emote:emote}) }}">{{ emote }}</a> {% endfor %}</p>
 
 <h2>Emote overview</h2>
 <p><a href="{{ path('emotes') }}">Emote leaderboard</a></p>

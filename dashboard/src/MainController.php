@@ -10,6 +10,7 @@ class MainController implements ControllerProviderInterface
 {
 	const EXCLUDED_CHATTERS = ["nightbot", "notheowner", "_streamelements_", "scootycoolguy"];
 	
+	const EMOTES_TABLE = "emotes";
 	const CHANNEL_STATS_TABLE = "channel_stats";
 	const USER_STATS_TABLE = "user_stats";
 	const EMOTE_STATS_TABLE = "emote_stats";
@@ -25,10 +26,15 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/', function(Request $request) use($app, $db) {
 			// Get emote list
-			$stmt = $db->query("SELECT DISTINCT emote FROM ".self::EMOTE_STATS_TABLE." ORDER BY emote ASC");
+			$stmt = $db->query("SELECT DISTINCT a.emote AS emote, LOWER(a.emote) AS ignored, b.type AS type"
+							. " FROM ".self::EMOTE_STATS_TABLE." a"
+							. " LEFT JOIN ".self::EMOTES_TABLE." b ON a.emote=b.emote"
+							. " ORDER BY LOWER(a.emote) ASC");
+			if ($stmt === false)
+				print_r($db->errorInfo());
 			$emotes = [];
 			while ($row = $stmt->fetch())
-				$emotes[] = $row[0];
+				$emotes[$row['emote']] = $row['type'];
 
 			// Determine visualized window bounds
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
