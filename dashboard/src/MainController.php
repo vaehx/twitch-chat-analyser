@@ -234,6 +234,9 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/user/{username}', function($username) use($app, $db) {
 			$stmt = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE." WHERE username='$username' ORDER BY timestamp ASC");
+			if ($stmt->rowCount() == 0)
+				$app->abort(404, "User not found");
+
 			$stats = $stmt->fetchAll();
 
 			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE username='$username' GROUP BY emote ORDER BY MAX(occurrences) DESC");
