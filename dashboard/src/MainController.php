@@ -166,6 +166,10 @@ class MainController implements ControllerProviderInterface
 		 * User Leaderboard for an emote
 		 */
 		$route->get('/emote/{emote}', function($emote) use($app, $db) {
+			$stmt = $db->query("SELECT emote FROM ".self::EMOTES_TABLE." WHERE emote='$emote' LIMIT 1");
+			if ($stmt->rowCount() == 0)
+				$app->abort(404, "Emote not found");
+			
 			$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." WHERE emote='$emote' ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 			$minOccurrences = $stats[0]['occurrences'];
