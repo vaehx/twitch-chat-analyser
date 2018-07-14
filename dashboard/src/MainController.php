@@ -64,32 +64,15 @@ class MainController implements ControllerProviderInterface
 			$stmt = $db->query("SELECT timestamp, message_count FROM channel_stats WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY timestamp ASC");
 			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION);
 
-			// Get top N users stats in selected time window
-			$topN = 10;
-			$additional_chatters = [];
-			$stmt = $db->query("SELECT username FROM ".self::USER_STATS_TABLE." WHERE timestamp >= $earliestTimestamp GROUP BY username ORDER BY MAX(message_count) DESC LIMIT " . ($topN + count(self::EXCLUDED_CHATTERS)));
-			$topChatterUsernames = [];
+			// Chatters active in selected time window
+			$stmt = $db->query("SELECT DISTINCT username FROM ".self::USER_STATS_TABLE." WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY username ASC");
+			$recentChatters = [];
+			$recentChattersTotal = 0;
 			while ($row = $stmt->fetch())
-				$topChatterUsernames[] = $row[0];
-
-			foreach ($additional_chatters as $username)
 			{
-				if (!in_array($username, $topChatterUsernames))
-					$topChatterUsernames[] = $username;
-			}
-
-			$topChatters = [];
-			foreach ($topChatterUsernames as $username)
-			{
-				if (in_array($username, self::EXCLUDED_CHATTERS))
-					continue;
-
-				$stmt2 = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE." WHERE username='$username' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
-				if ($stmt2->rowCount() > 0)
-					$topChatters[$username] = $stmt2->fetchAll();
-				
-				if (count($topChatters) == $topN)
-					break;
+				$recentChattersTotal++;
+				if ($recentChattersTotal <= 25)
+					$recentChatters[] = $row[0];
 			}
 
 			return $app['twig']->render('index.twig', [
@@ -97,7 +80,9 @@ class MainController implements ControllerProviderInterface
 				'channelStats' => $channelStats,
 				'emoteStats' => $emoteStats,
 				'emoteStatsMinOccurrences' => $minEmoteOccurrences,
-				'topChatters' => $topChatters]);
+				'recentChatters' => $recentChatters,
+				'recentChattersTotal' => $recentChattersTotal
+			]);
 		})->bind('index');
 
 		/**

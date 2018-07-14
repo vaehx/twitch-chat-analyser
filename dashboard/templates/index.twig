@@ -136,33 +136,16 @@
 
 <br />
 
-<h2>User message count overview</h2>
+<h2>Recent chatters</h2>
 <p>
 	<a href="{{ path('users') }}">User Leaderboard</a>
 </p>
 
-<div id="user-stats-chart" style="width:1000px; height:400px"></div>
-
-<script type="text/javascript">
-	function populateUsersData() {
-		var chartData = [
-			[ 'Time'{% for username in topChatters|keys %}, '{{ username }}'{% endfor %} ]
-		{% for username, userStat in topChatters %}
-			{%- for stat in userStat -%}
-			,[new Date({{ stat.timestamp }}){% for username2 in topChatters|keys %},{% if username2 == username %}{{ stat.message_count }}{% else %}null{% endif %}{% endfor %}]
-			{%- endfor -%}
-		{% endfor %}
-		];
-		return chartData;
-	}
-
-	function drawUserChart() {
-		var chartData = populateUsersData();
-		var data = google.visualization.arrayToDataTable(chartData);
-		var chart = new google.visualization.LineChart(document.getElementById('user-stats-chart'));
-		chart.draw(data, chartOptions);
-	}
-</script>
+<div>
+	{% for chatter in recentChatters %}{{ chatter }}{% if not loop.last %}, {% endif %}{% endfor %}
+	{% set moreChatters = recentChattersTotal - recentChatters|length %}
+	{% if moreChatters > 0 %}(and {{ moreChatters }} more...){% endif %}
+</div>
 
 
 {% endblock %}
