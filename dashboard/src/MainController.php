@@ -38,7 +38,7 @@ class MainController implements ControllerProviderInterface
 
 			// Determine visualized window bounds
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
-			$latestTimestamp = round(microtime(true) * 1000);
+			$latestTimestamp = self::getCurrentTimestamp();
 			$earliestTimestamp = $latestTimestamp - $shownMinutes * 60 * 1000;
 
 			// Get emote statistics
@@ -219,7 +219,7 @@ class MainController implements ControllerProviderInterface
 		$route->get('/users', function() use($app, $db) {
 			$excluded_users = ["nightbot"];
 			
-			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(message_count) DESC");
+			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(message_count) DESC LIMIT 1000");
 			$leaderboard = [];
 			while ($row = $stmt->fetch())
 			{
@@ -237,22 +237,49 @@ class MainController implements ControllerProviderInterface
 		 * User message count
 		 */
 		$route->get('/user/{username}', function($username) use($app, $db) {
-			$stmt = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE." WHERE username='$username' ORDER BY timestamp ASC");
+			$windowStart = 0;
+			$windowEnd = self::getCurrentTimestamp();
+			
+			$stmt = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE.""
+							. " WHERE username='$username' AND timestamp >= $windowStart AND timestamp <= $windowEnd"
+							. " ORDER BY timestamp ASC");
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "User not found");
 
 			$stats = $stmt->fetchAll();
+			if ($windowStart == 0)
+				$windowStart = $stats[0]['timestamp'];
 
-			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE username='$username' GROUP BY emote ORDER BY MAX(occurrences) DESC");
+			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
+							. " WHERE username='$username' AND timestamp >= $windowStart AND timestamp <= $windowEnd"
+							. " GROUP BY emote ORDER BY MAX(occurrences) DESC");
 			$emoteUsages = [];
 			while ($row = $stmt->fetch())
 				$emoteUsages[$row['emote']] = $row['occurrences'];
 			
 			return $app['twig']->render('user.twig', [
 				'username' => $username,
+				'windowStart' => $windowStart,
+				'windowEnd' => $windowEnd,
 				'stats' => $stats,
 				'emoteUsages' => $emoteUsages]);
 		})->bind('user');
+
+
+
+		$route->get('/dump/emotes', function() use($app, $db) {
+			echo "<pre style='max-width: 100%; white-space: normal;'>";
+			echo "INSERT INTO emotes(emote) VALUES";
+
+			$stmt = $db->query("SELECT emote FROM emotes ORDER BY emote ASC");
+			while ($row = $stmt->fetch()) {
+				$emote = $row['emote'];
+				echo "('$emote'), ";
+			}
+
+			echo "</pre>";
+			return "";
+		})->bind('dump_emotes');
 
 		return $route;
 	}
@@ -289,5 +316,10 @@ class MainController implements ControllerProviderInterface
 		$val = max($array);
 		$variance = array_sum(array_map(function($x) use($val) { return pow($x, 2); }, $array)) / ($n - 1);
 		return sqrt($variance);
+	}
+
+	static function getCurrentTimestamp()
+	{
+		return round(microtime(true) * 1000);
 	}
 }

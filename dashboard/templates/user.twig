@@ -5,6 +5,10 @@
 
 <h2>User '{{ username }}'</h2>
 
+<p>
+	<b>Shown time range:</b> {{ windowStart }} - {{ windowEnd }} ({{ (windowEnd - windowStart)|date_duration }})
+</p>
+
 <h3>Message count</h3>
 <div id="user-graph" style="width:800px; height:300px"></div>
 <script type="text/javascript">
