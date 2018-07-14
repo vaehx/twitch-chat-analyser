@@ -80,6 +80,9 @@ public class TwitchSource extends RichSourceFunction<Message> {
 
 			Message m = new Message();
 			m.channel = event.getChannel().getName();
+			if (m.channel.startsWith("#"))
+				m.channel = m.channel.substring(1);
+
 			m.timestamp = event.getTimestamp();
 			m.username = event.getUser().getNick();
 			m.message = event.getMessage();
