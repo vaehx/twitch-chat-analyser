@@ -1,4 +1,22 @@
 {% extends 'layout.twig' %}
+{% block additionalHeaders %}
+<style type="text/css">
+	#emote-charts > div {
+		display: inline-block;
+		vertical-align: top;
+	}
+	#emote-charts h4 {
+		margin-top: 5px;
+		margin-bottom: 5px;
+	}
+	#emote-charts .chart {
+		height: 240px;
+	}
+	#emote-charts #emote-stats-chart-template {
+		display: none;
+	}
+</style>
+{% endblock %}
 {% block content %}
 
 <p>
@@ -10,7 +28,7 @@
 
 <script type="text/javascript">
 	function drawCharts() {
-		drawEmoteChart();
+		drawEmoteCharts();
 		drawTotalsChart();
 		drawUserChart();
 	}
@@ -26,39 +44,65 @@
 
 <h2>Emote overview</h2>
 <p><a href="{{ path('emotes') }}">Emote leaderboard</a></p>
-<div id="emote-stats-chart" style="width:1000px; height:400px"></div>
+<div id="emote-charts">
+	<div id="emote-stats-chart-template" style="width:400px; height:280px;">
+		<h4>Emote</h4>
+		<div class="chart"></div>
+	</div>
+</div>
 
 <script type="text/javascript">
-	function populateEmoteChartData() {
-		var chartData = [
-			[ 'Time'{% for emote in emoteStats|keys %}, '{{ emote }}'{% endfor %} ]
+	function populateEmotesChartData() {
+		var chartData = {};
 		{% for emote, emoteStat in emoteStats %}
-			{%- for stat in emoteStat -%}
-			,[new Date({{ stat.timestamp }}){% for emote2 in emoteStats|keys %},{% if emote2 == emote %}{{ stat.occurrences }}{% else %}null{% endif %}{% endfor %}]
-			{%- endfor -%}
+		chartData['{{ emote }}'] = {
+			'data': [
+				['Time', 'Occurrences'],
+				{% for stat in emoteStat %}
+				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+				{% endfor %}
+			],
+			'minOccurrences': {{ emoteStat[0].occurrences }}
+		};
 		{% endfor %}
-		];
 		return chartData;
 	}
 
-	function drawEmoteChart() {
-		var chartData = populateEmoteChartData();
-		var data = google.visualization.arrayToDataTable(chartData);
-		var chart = new google.visualization.LineChart(document.getElementById('emote-stats-chart'));
+	function drawEmoteChart(data, emote) {
+		var chartDiv = $('#emote-stats-chart-template').clone();
+		chartDiv.attr('id', 'emote-stats-chart-' + emote);
+		chartDiv.find('h4').text(emote);
+		$('#emote-charts').append(chartDiv);
+
+		var chartDataTable = google.visualization.arrayToDataTable(data.data);
+		var chart = new google.visualization.LineChart(chartDiv.find('.chart')[0]);
 		var emoteChartOptions = {
+			colors: [ '#9ae248' ],
 			vAxis: {
 				gridlines: {
-					count: 10
+					count: 5
 				},
 				viewWindow: {
-					min: Math.max(0, {{ emoteStatsMinOccurrences }} - 500)
+					min: Math.max(0, data.minOccurrences - 500)
 				},
 				viewWindowMode: "explicit"
+			},
+			chartArea: {
+				left: 80,
+				top: 0,
+				width: '75%',
+				height: '90%'
 			}
 		};
 		$.extend(true, emoteChartOptions, chartOptions);
-		console.debug(emoteChartOptions);
-		chart.draw(data, emoteChartOptions);
+		chart.draw(chartDataTable, emoteChartOptions);
+	}
+
+	function drawEmoteCharts() {
+		var chartData = populateEmotesChartData();
+		{% for emote in emoteStats|keys %}
+		drawEmoteChart(chartData['{{ emote }}'], '{{ emote }}');
+		{% endfor %}
 	}
 </script>
 
