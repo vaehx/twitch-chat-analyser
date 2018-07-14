@@ -16,6 +16,8 @@ class MainController implements ControllerProviderInterface
 	const EMOTE_STATS_TABLE = "emote_stats";
 	const USER_EMOTE_STATS_TABLE = "user_emote_stats";
 
+	const DEFAULT_SERIES_RESOLUTION = 1000; // sample points
+
 	public function connect(SilexApplication $app)
 	{
 		$route = $app['controllers_factory'];
@@ -43,7 +45,7 @@ class MainController implements ControllerProviderInterface
 
 				if ($stmt->rowCount() > 0)
 				{
-					$emoteStats[$emote] = $stmt->fetchAll();
+					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'occurrences', 150);
 					$firstOccurrences = $emoteStats[$emote][0]['occurrences'];
 				}
 				else
@@ -60,7 +62,7 @@ class MainController implements ControllerProviderInterface
 
 			// Get total message count
 			$stmt = $db->query("SELECT timestamp, message_count FROM channel_stats WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY timestamp ASC");
-			$channelStats = $stmt->fetchAll();
+			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION);
 
 			// Get top N users stats in selected time window
 			$topN = 10;
@@ -161,6 +163,7 @@ class MainController implements ControllerProviderInterface
 			$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." WHERE emote='$emote' ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 			$minOccurrences = $stats[0]['occurrences'];
+			$stats = self::resampleTimeSeries($stats, 'occurrences', self::DEFAULT_SERIES_RESOLUTION);
 
 			// Get total occurrences
 			$stmt = $db->query("SELECT SUM(occurrences) FROM ("
@@ -193,7 +196,7 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/emote/{emote}/user/{username}', function($emote, $username) use($app, $db) {
 			$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username='$username' ORDER BY timestamp ASC");
-			$stats = $stmt->fetchAll();
+			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'occurrences', self::DEFAULT_SERIES_RESOLUTION);
 			
 			return $app['twig']->render('user_emote.twig', [
 				'emote' => $emote,
@@ -207,7 +210,7 @@ class MainController implements ControllerProviderInterface
 		$route->get('/users', function() use($app, $db) {
 			$excluded_users = ["nightbot"];
 			
-			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(message_count) DESC LIMIT 1000");
+			$stmt = $db->query("SELECT username, MAX(message_count) AS message_count FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(message_count) DESC LIMIT 50");
 			$leaderboard = [];
 			while ($row = $stmt->fetch())
 			{
@@ -234,7 +237,7 @@ class MainController implements ControllerProviderInterface
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "User not found");
 
-			$stats = $stmt->fetchAll();
+			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION);
 			if ($windowStart == 0)
 				$windowStart = $stats[0]['timestamp'];
 
@@ -309,5 +312,58 @@ class MainController implements ControllerProviderInterface
 	static function getCurrentTimestamp()
 	{
 		return round(microtime(true) * 1000);
+	}
+
+	// Re-Samples the given time series to reduce or increase resolution in time domain
+	// This function assumes that series is already sorted by timestamp and is in the following format:
+	//	[['timestamp' => ..., $fieldName => ''], ...]
+	// numPoints is the number of points of the output series
+	static function resampleTimeSeries($series, $fieldName, $numPoints=1000)
+	{
+		$startTime = reset($series)['timestamp'];
+		$endTime = end($series)['timestamp'];
+		$t = $startTime;
+		$t_step = ($endTime - $startTime) / $numPoints;
+		$result = [];
+		$prevBeforeIdx = 0;
+		while ($t <= $endTime)
+		{
+			// Find the elements immediately before and after t (or on-time)
+			$before = null;
+			$after = null;
+			for ($i = $prevBeforeIdx; $i < count($series); ++$i)
+			{
+				$pt = $series[$i];
+				$pt_next = $series[$i + 1];
+				if ($pt['timestamp'] > $t)
+					break;
+
+				if ($pt_next['timestamp'] >= $t)
+				{
+					$before = $pt;
+					$after = $pt_next;
+					$prevBeforeIdx = $i;
+					break;
+				}
+			}
+
+			// TODO: handle cases where before and/or after is null
+
+			// Interpolate between before and after
+			$k = ($t - $before['timestamp']) / ($after['timestamp'] - $before['timestamp']);
+			$result[] = [
+				'timestamp' => $t,
+				$fieldName => $before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName])
+			];
+
+			if ($t == $endTime)
+				break;
+
+			$t = ceil($t + $t_step);
+			if ($t > $endTime)
+				$t = $endTime;
+		}
+
+		return $result;
 	}
 }
