@@ -1,7 +1,7 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<a href="{{ path('emote', { emote: emote }) }}">&larr; Back to emote '{{ emote }}'</a>
+<p><a href="{{ path('emote', { emote: emote }) }}"><i class="fa fa-long-arrow-left"></i> Back to emote '{{ emote }}'</a></p>
 
 <h2>Emote '<a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a>' by user '<a href="{{ path('user', {username: username}) }}">{{ username }}</a>'</h2>
 

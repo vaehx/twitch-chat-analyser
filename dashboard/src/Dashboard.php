@@ -27,8 +27,8 @@ class Dashboard extends SilexApplication
 			$d = $a->diff($b);
 			
 			$formatted = ''
-				. ($d->y > 0 ? $d->y . 'y ' : '')
-				. ($d->m > 0 ? $d->m . 'm ' : '')
+				. ($d->y > 0 ? $d->y . 'Y ' : '')
+				. ($d->m > 0 ? $d->m . 'M ' : '')
 				. ($d->d > 0 ? $d->d . 'd ' : '')
 				. ($d->h > 0 ? $d->h . 'h ' : '')
 				. ($d->i > 0 ? $d->i . 'min ' : '')

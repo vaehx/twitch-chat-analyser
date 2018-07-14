@@ -25,17 +25,6 @@ class MainController implements ControllerProviderInterface
 		 * Emote statistics overview
 		 */
 		$route->get('/', function(Request $request) use($app, $db) {
-			// Get emote list
-			$stmt = $db->query("SELECT DISTINCT a.emote AS emote, LOWER(a.emote) AS ignored, b.type AS type"
-							. " FROM ".self::EMOTE_STATS_TABLE." a"
-							. " LEFT JOIN ".self::EMOTES_TABLE." b ON a.emote=b.emote"
-							. " ORDER BY LOWER(a.emote) ASC");
-			if ($stmt === false)
-				print_r($db->errorInfo());
-			$emotes = [];
-			while ($row = $stmt->fetch())
-				$emotes[$row['emote']] = $row['type'];
-
 			// Determine visualized window bounds
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
 			$latestTimestamp = self::getCurrentTimestamp();
@@ -102,7 +91,6 @@ class MainController implements ControllerProviderInterface
 			}
 
 			return $app['twig']->render('index.twig', [
-				'emotes' => $emotes,
 				'shownMinutes' => $shownMinutes,
 				'channelStats' => $channelStats,
 				'emoteStats' => $emoteStats,

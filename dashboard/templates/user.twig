@@ -1,12 +1,12 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<a href="{{ path('users') }}">&larr; Back to user leaderboard</a>
+<p><a href="{{ path('users') }}"><i class="fa fa-long-arrow-left"></i> Back to user leaderboard</a></p>
 
 <h2>User '{{ username }}'</h2>
 
 <p>
-	<b>Shown time range:</b> {{ windowStart }} - {{ windowEnd }} ({{ (windowEnd - windowStart)|date_duration }})
+	<b>Shown time range:</b> {{ (windowEnd - windowStart)|date_duration }}
 </p>
 
 <h3>Message count</h3>
@@ -56,17 +56,21 @@
 	}
 </script>
 
-<table>
-	<tr>
-		<th>Emote</th>
-		<th>Times used</th>
-	</tr>
-	{% for emote, numUsed in emoteUsages %}
-	<tr>
-		<td><a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a></td>
-		<td>{{ numUsed }}</td>
-	</tr>
-	{% endfor %}
+<table class="table table-dark table-striped table-hover">
+	<thead>
+		<tr>
+			<th>Emote</th>
+			<th>Times used</th>
+		</tr>
+	</thead>
+	<tbody>
+		{% for emote, numUsed in emoteUsages %}
+		<tr>
+			<td><a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a></td>
+			<td>{{ numUsed }}</td>
+		</tr>
+		{% endfor %}
+	</tbody>
 </table>
 
 {% endblock %}
