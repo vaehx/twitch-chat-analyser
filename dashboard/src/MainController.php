@@ -32,8 +32,8 @@ class MainController implements ControllerProviderInterface
 			if ($shownMinutes <= 0)
 				$shownMinutes = 1;
 
-			$latestTimestamp = self::getCurrentTimestamp();
-			$earliestTimestamp = $latestTimestamp - $shownMinutes * 60 * 1000;
+			$windowEndTime = self::getCurrentTimestamp();
+			$windowStartTime = $windowEndTime - $shownMinutes * 60 * 1000;
 
 			// Get emote statistics
 			$emoteStats = [];
@@ -42,19 +42,19 @@ class MainController implements ControllerProviderInterface
 			foreach ($visualizedEmotes as $emote)
 			{
 				$stmt = $db->query("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." "
-								. " WHERE emote='$emote' AND timestamp >= $earliestTimestamp ORDER BY timestamp ASC");
+								. " WHERE emote='$emote' AND timestamp >= $windowStartTime ORDER BY timestamp ASC");
 				if ($stmt === false)
 					continue;
 
 				if ($stmt->rowCount() > 0)
 				{
-					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'occurrences', 150);
+					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'occurrences', 150, $windowStartTime, $windowEndTime);
 				}
 				else
 				{
 					$emoteStats[$emote] = [
-						['timestamp' => $earliestTimestamp, 'occurrences' => 0],
-						['timestamp' => $latestTimestamp, 'occurrences' => 0]
+						['timestamp' => $windowStartTime, 'occurrences' => 0],
+						['timestamp' => $windowEndTime, 'occurrences' => 0]
 					];
 				}
 
@@ -64,11 +64,11 @@ class MainController implements ControllerProviderInterface
 			}
 
 			// Get total message count
-			$stmt = $db->query("SELECT timestamp, message_count FROM channel_stats WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY timestamp ASC");
-			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION);
+			$stmt = $db->query("SELECT timestamp, message_count FROM channel_stats WHERE timestamp >= $windowStartTime AND timestamp <= $windowEndTime ORDER BY timestamp ASC");
+			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION, $windowStartTime, $windowEndTime);
 
 			// Chatters active in selected time window
-			$stmt = $db->query("SELECT DISTINCT username FROM ".self::USER_STATS_TABLE." WHERE timestamp >= $earliestTimestamp AND timestamp <= $latestTimestamp ORDER BY username ASC");
+			$stmt = $db->query("SELECT DISTINCT username FROM ".self::USER_STATS_TABLE." WHERE timestamp >= $windowStartTime AND timestamp <= $windowEndTime ORDER BY username ASC");
 			$recentChatters = [];
 			$recentChattersTotal = 0;
 			while ($row = $stmt->fetch())
@@ -216,21 +216,21 @@ class MainController implements ControllerProviderInterface
 		 * User message count
 		 */
 		$route->get('/user/{username}', function($username) use($app, $db) {
-			$windowStart = 0;
-			$windowEnd = self::getCurrentTimestamp();
+			$windowStartTime = 0;
+			$windowEndTime = self::getCurrentTimestamp();
 			
 			$stmt = $db->query("SELECT timestamp, message_count FROM ".self::USER_STATS_TABLE.""
-							. " WHERE username='$username' AND timestamp >= $windowStart AND timestamp <= $windowEnd"
+							. " WHERE username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " ORDER BY timestamp ASC");
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "User not found");
 
 			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'message_count', self::DEFAULT_SERIES_RESOLUTION);
-			if ($windowStart == 0)
-				$windowStart = $stats[0]['timestamp'];
+			if ($windowStartTime == 0)
+				$windowStartTime = $stats[0]['timestamp'];
 
 			$stmt = $db->query("SELECT emote, MAX(occurrences) AS occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. " WHERE username='$username' AND timestamp >= $windowStart AND timestamp <= $windowEnd"
+							. " WHERE username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " GROUP BY emote ORDER BY MAX(occurrences) DESC");
 			$emoteUsages = [];
 			while ($row = $stmt->fetch())
@@ -238,8 +238,8 @@ class MainController implements ControllerProviderInterface
 			
 			return $app['twig']->render('user.twig', [
 				'username' => $username,
-				'windowStart' => $windowStart,
-				'windowEnd' => $windowEnd,
+				'windowStart' => $windowStartTime,
+				'windowEnd' => $windowEndTime,
 				'stats' => $stats,
 				'emoteUsages' => $emoteUsages]);
 		})->bind('user');
@@ -306,6 +306,7 @@ class MainController implements ControllerProviderInterface
 	// This function assumes that series is already sorted by timestamp and is in the following format:
 	//	[['timestamp' => ..., $fieldName => ''], ...]
 	// numPoints is the number of points of the output series
+	// startTime and endTime are only used if the series is empty and should be set to the visible view window
 	static function resampleTimeSeries($series, $fieldName, $numPoints=1000, $startTime=null, $endTime=null)
 	{
 		if ($numPoints < 2)
@@ -326,10 +327,8 @@ class MainController implements ControllerProviderInterface
 		$first = reset($series);
 		$last = end($series);
 
-		if (is_null($startTime))
-			$startTime = $first['timestamp'];
-		if (is_null($endTime))
-			$endTime = $last['timestamp'];
+		$startTime = $first['timestamp'];
+		$endTime = $last['timestamp'];
 
 		if ($endTime - $startTime == 0)
 		{
