@@ -335,7 +335,13 @@ class MainController implements ControllerProviderInterface
 			// TODO: handle cases where before and/or after is null
 
 			// Interpolate between before and after
-			$k = ($t - $before['timestamp']) / ($after['timestamp'] - $before['timestamp']);
+			if ($before['timestamp'] == $t)
+				$k = 0;
+			else if ($after['timestamp'] == $t)
+				$k = 1;
+			else
+				$k = ($t - $before['timestamp']) / ($after['timestamp'] - $before['timestamp']);
+
 			$result[] = [
 				'timestamp' => $t,
 				$fieldName => $before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName])
