@@ -29,6 +29,9 @@ class MainController implements ControllerProviderInterface
 		$route->get('/', function(Request $request) use($app, $db) {
 			// Determine visualized window bounds
 			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
+			if ($shownMinutes <= 0)
+				$shownMinutes = 1;
+
 			$latestTimestamp = self::getCurrentTimestamp();
 			$earliestTimestamp = $latestTimestamp - $shownMinutes * 60 * 1000;
 
@@ -46,7 +49,6 @@ class MainController implements ControllerProviderInterface
 				if ($stmt->rowCount() > 0)
 				{
 					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'occurrences', 150);
-					$firstOccurrences = $emoteStats[$emote][0]['occurrences'];
 				}
 				else
 				{
@@ -56,6 +58,7 @@ class MainController implements ControllerProviderInterface
 					];
 				}
 
+				$firstOccurrences = $emoteStats[$emote][0]['occurrences'];
 				if ($firstOccurrences < $minEmoteOccurrences)
 					$minEmoteOccurrences = $firstOccurrences;
 			}
@@ -303,50 +306,82 @@ class MainController implements ControllerProviderInterface
 	// This function assumes that series is already sorted by timestamp and is in the following format:
 	//	[['timestamp' => ..., $fieldName => ''], ...]
 	// numPoints is the number of points of the output series
-	static function resampleTimeSeries($series, $fieldName, $numPoints=1000)
+	static function resampleTimeSeries($series, $fieldName, $numPoints=1000, $startTime=null, $endTime=null)
 	{
-		$startTime = reset($series)['timestamp'];
-		$endTime = end($series)['timestamp'];
+		if ($numPoints < 2)
+			$numPoints = 2;
+
+		$n = count($series);
+		if ($n == 0)
+		{
+			if (is_null($startTime) || is_null($endTime))
+				throw new \Exception("Cannot resample time series: Length = 0 and no start- and/or end-time given");
+
+			return [
+				['timestamp' => $startTime, $fieldName => 0],
+				['timestamp' => $endTime, $fieldName => 0]
+			];
+		}
+
+		$first = reset($series);
+		$last = end($series);
+
+		if (is_null($startTime))
+			$startTime = $first['timestamp'];
+		if (is_null($endTime))
+			$endTime = $last['timestamp'];
+
+		if ($endTime - $startTime == 0)
+		{
+			$endTime = $startTime + 1000 * 60;
+			$numPoints = 2;
+		}
+
 		$t = $startTime;
-		$t_step = ($endTime - $startTime) / $numPoints;
+		$t_step = ($endTime - $startTime) / ($numPoints - 1);
 		$result = [];
 		$prevBeforeIdx = 0;
 		while ($t <= $endTime)
 		{
-			// Find the elements immediately before and after t (or on-time)
-			$before = null;
-			$after = null;
-			for ($i = $prevBeforeIdx; $i < count($series); ++$i)
+			if ($t <= $first['timestamp'])
 			{
-				$pt = $series[$i];
-				$pt_next = $series[$i + 1];
-				if ($pt['timestamp'] > $t)
-					break;
-
-				if ($pt_next['timestamp'] >= $t)
-				{
-					$before = $pt;
-					$after = $pt_next;
-					$prevBeforeIdx = $i;
-					break;
-				}
+				// Not enough data before the start of the series
+				$result[] = ['timestamp' => $t, $fieldName => $first[$fieldName]];
 			}
-
-			// TODO: handle cases where before and/or after is null
-
-			// Interpolate between before and after
-			if ($before['timestamp'] == $t)
-				$k = 0;
-			else if ($after['timestamp'] == $t)
-				$k = 1;
+			else if ($t >= $last['timestamp'])
+			{
+				// Not enough data after the end of the series
+				$result[] = ['timestamp' => $t, $fieldName => $last[$fieldName]];
+			}
 			else
+			{
+				// Find the elements immediately before and after t (or on-time)
+				$before = null;
+				$after = null;
+
+				for ($i = $prevBeforeIdx; $i < $n - 1; ++$i)
+				{
+					$pt = $series[$i];
+					if ($pt['timestamp'] > $t)
+						break;
+
+					$pt_next = $series[$i + 1];
+					if ($pt_next['timestamp'] >= $t)
+					{
+						$before = $pt;
+						$after = $pt_next;
+						$prevBeforeIdx = $i;
+						break;
+					}
+				}
+
 				$k = ($t - $before['timestamp']) / ($after['timestamp'] - $before['timestamp']);
-
-			$result[] = [
-				'timestamp' => $t,
-				$fieldName => $before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName])
-			];
-
+				$result[] = [
+					'timestamp' => $t,
+					$fieldName => $before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName])
+				];
+			}
+			
 			if ($t == $endTime)
 				break;
 
