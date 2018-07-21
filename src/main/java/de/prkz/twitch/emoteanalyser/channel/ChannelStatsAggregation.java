@@ -64,7 +64,7 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
 	@Override
 	protected Row getRowFromStats(ChannelStats channelStats) {
-		Row row = new Row(3);
+		Row row = new Row(4);
 		row.setField(0, channelStats.channel);
 		row.setField(1, channelStats.timestamp);
 		row.setField(2, channelStats.totalMessageCount);

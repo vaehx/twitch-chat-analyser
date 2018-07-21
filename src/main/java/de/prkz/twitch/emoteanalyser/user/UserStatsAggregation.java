@@ -80,7 +80,7 @@ public class UserStatsAggregation
 
 	@Override
 	protected Row getRowFromStats(UserStats stats) {
-		Row row = new Row(4);
+		Row row = new Row(5);
 		row.setField(0, stats.channel);
 		row.setField(1, stats.username);
 		row.setField(2, stats.timestamp);

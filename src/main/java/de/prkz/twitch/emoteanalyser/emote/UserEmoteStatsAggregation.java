@@ -82,7 +82,7 @@ public class UserEmoteStatsAggregation
 
 	@Override
 	protected Row getRowFromStats(UserEmoteStats stats) {
-		Row row = new Row(5);
+		Row row = new Row(6);
 		row.setField(0, stats.channel);
 		row.setField(1, stats.emote);
 		row.setField(2, stats.username);
