@@ -16,7 +16,7 @@ class MainController implements ControllerProviderInterface
 	const EMOTE_STATS_TABLE = "emote_stats";
 	const USER_EMOTE_STATS_TABLE = "user_emote_stats";
 
-	const DEFAULT_SERIES_RESOLUTION = 1000; // sample points
+	const DEFAULT_SERIES_RESOLUTION = 500; // sample points
 
 	public function connect(SilexApplication $app)
 	{
@@ -42,13 +42,13 @@ class MainController implements ControllerProviderInterface
 			foreach ($visualizedEmotes as $emote)
 			{
 				$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE." "
-								. " WHERE emote='$emote' AND timestamp >= $windowStartTime ORDER BY timestamp ASC");
+								. " WHERE emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime ORDER BY timestamp ASC");
 				if ($stmt === false)
 					continue;
 
 				if ($stmt->rowCount() > 0)
 				{
-					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'total_occurrences', 150, $windowStartTime, $windowEndTime);
+					$emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'total_occurrences', 100, $windowStartTime, $windowEndTime);
 				}
 				else
 				{
