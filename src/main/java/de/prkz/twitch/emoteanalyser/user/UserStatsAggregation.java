@@ -2,7 +2,6 @@ package de.prkz.twitch.emoteanalyser.user;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
-import de.prkz.twitch.emoteanalyser.emote.UserEmoteStats;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -49,17 +48,22 @@ public class UserStatsAggregation
 				"ORDER BY timestamp DESC LIMIT 1");
 
 		if (result.next())
-			stats.messageCount = result.getLong(1);
+			stats.totalMessageCount = result.getLong(1);
 		else
-			stats.messageCount = 0;
+			stats.totalMessageCount = 0;
 
 		stmt.close();
 		return stats;
 	}
 
 	@Override
-	protected UserStats updateStats(UserStats stats, Message message) {
-		stats.messageCount++;
+	protected UserStats processWindowElements(UserStats stats, Iterable<Message> messages) {
+		stats.messageCount = 0;
+		for (Message message : messages) {
+			stats.messageCount++;
+			stats.totalMessageCount++;
+		}
+
 		return stats;
 	}
 
@@ -69,7 +73,8 @@ public class UserStatsAggregation
 				"channel VARCHAR(32) NOT NULL," +
 				"username VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"message_count BIGINT NOT NULL DEFAULT 0," +
+				"total_messages BIGINT NOT NULL DEFAULT 0," +
+				"messages INT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(channel, username, timestamp))");
 	}
 
@@ -79,17 +84,24 @@ public class UserStatsAggregation
 		row.setField(0, stats.channel);
 		row.setField(1, stats.username);
 		row.setField(2, stats.timestamp);
-		row.setField(3, stats.messageCount);
+		row.setField(3, stats.totalMessageCount);
+		row.setField(4, stats.messageCount);
 		return row;
 	}
 
 	@Override
 	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, username, timestamp, message_count) VALUES(?, ?, ?, ?)";
+		return "INSERT INTO " + TABLE_NAME + "(channel, username, timestamp, total_messages, messages) VALUES(?, ?, ?, ?, ?)";
 	}
 
 	@Override
 	protected int[] getRowColumnTypes() {
-		return new int[] { Types.VARCHAR, Types.VARCHAR, Types.BIGINT, Types.BIGINT };
+		return new int[] {
+				Types.VARCHAR, /* channel */
+				Types.VARCHAR, /* username */
+				Types.BIGINT, /* timestamp */
+				Types.BIGINT, /* total_messages */
+				Types.INTEGER /* messages */
+		};
 	}
 }

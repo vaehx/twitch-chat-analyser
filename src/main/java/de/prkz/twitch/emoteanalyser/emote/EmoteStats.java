@@ -8,5 +8,6 @@ import de.prkz.twitch.emoteanalyser.AbstractStats;
 public class EmoteStats extends AbstractStats {
 	public String channel;
 	public String emote;
-	public long occurrences;
+	public long totalOccurrences; // aggregated over global event-time window
+	public int occurrences = 0; // aggregated over tumbling event-time window
 }

@@ -28,22 +28,27 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
 		// Load current count from database, if it exists
 		Statement stmt = conn.createStatement();
-		ResultSet result = stmt.executeQuery("SELECT message_count FROM " + TABLE_NAME + " " +
+		ResultSet result = stmt.executeQuery("SELECT total_messages FROM " + TABLE_NAME + " " +
 				"WHERE channel='" + channel + "' " +
 				"ORDER BY timestamp DESC LIMIT 1");
 
 		if (result.next())
-			stats.messageCount = result.getLong(1);
+			stats.totalMessageCount = result.getLong(1);
 		else
-			stats.messageCount = 0;
+			stats.totalMessageCount = 0;
 
 		stmt.close();
 		return stats;
 	}
 
 	@Override
-	protected ChannelStats updateStats(ChannelStats stats, Message message) {
-		stats.messageCount++;
+	protected ChannelStats processWindowElements(ChannelStats stats, Iterable<Message> messages) {
+		stats.messageCount = 0;
+		for (Message message : messages) {
+			stats.messageCount++;
+			stats.totalMessageCount++;
+		}
+
 		return stats;
 	}
 
@@ -52,7 +57,8 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 		stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
 				"channel VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"message_count BIGINT NOT NULL," +
+				"total_messages BIGINT NOT NULL," +
+				"messages INT NOT NULL," +
 				"PRIMARY KEY(channel, timestamp))");
 	}
 
@@ -61,18 +67,24 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 		Row row = new Row(3);
 		row.setField(0, channelStats.channel);
 		row.setField(1, channelStats.timestamp);
-		row.setField(2, channelStats.messageCount);
+		row.setField(2, channelStats.totalMessageCount);
+		row.setField(3, channelStats.messageCount);
 		return row;
 	}
 
 	@Override
 	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, timestamp, message_count) VALUES(?, ?, ?)";
+		return "INSERT INTO " + TABLE_NAME + "(channel, timestamp, total_messages, messages) VALUES(?, ?, ?, ?)";
 	}
 
 	@Override
 	protected int[] getRowColumnTypes() {
-		return new int[] { Types.VARCHAR, Types.BIGINT, Types.BIGINT };
+		return new int[] {
+				Types.VARCHAR, /* channel */
+				Types.BIGINT, /* timestamp */
+				Types.BIGINT, /* total_messages */
+				Types.INTEGER /* messages */
+		};
 	}
 
 	@Override

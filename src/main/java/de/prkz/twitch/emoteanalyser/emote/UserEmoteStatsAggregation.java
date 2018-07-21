@@ -1,7 +1,6 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
-import de.prkz.twitch.emoteanalyser.channel.ChannelStats;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
@@ -45,22 +44,27 @@ public class UserEmoteStatsAggregation
 
 		// Load current count from database, if it exists
 		Statement stmt = conn.createStatement();
-		ResultSet result = stmt.executeQuery("SELECT occurrences FROM " + TABLE_NAME + " WHERE " +
+		ResultSet result = stmt.executeQuery("SELECT total_occurrences FROM " + TABLE_NAME + " WHERE " +
 				"channel='" + stats.channel + "' AND emote='" + stats.emote + "' AND username='" + stats.username + "' " +
 				"ORDER BY timestamp DESC LIMIT 1");
 
 		if (result.next())
-			stats.occurrences = result.getLong(1);
+			stats.totalOccurrences = result.getLong(1);
 		else
-			stats.occurrences = 0;
+			stats.totalOccurrences = 0;
 
 		stmt.close();
 		return stats;
 	}
 
 	@Override
-	protected UserEmoteStats updateStats(UserEmoteStats stats, Emote emote) {
-		stats.occurrences++;
+	protected UserEmoteStats processWindowElements(UserEmoteStats stats, Iterable<Emote> emotes) {
+		stats.occurrences = 0;
+		for (Emote emote : emotes) {
+			stats.occurrences++;
+			stats.totalOccurrences++;
+		}
+
 		return stats;
 	}
 
@@ -71,7 +75,8 @@ public class UserEmoteStatsAggregation
 				"emote VARCHAR(64) NOT NULL," +
 				"username VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"occurrences BIGINT NOT NULL DEFAULT 0," +
+				"total_occurrences BIGINT NOT NULL DEFAULT 0," +
+				"occurrences INT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(channel, emote, username, timestamp))");
 	}
 
@@ -82,13 +87,14 @@ public class UserEmoteStatsAggregation
 		row.setField(1, stats.emote);
 		row.setField(2, stats.username);
 		row.setField(3, stats.timestamp);
-		row.setField(4, stats.occurrences);
+		row.setField(4, stats.totalOccurrences);
+		row.setField(5, stats.occurrences);
 		return row;
 	}
 
 	@Override
 	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, emote, username, timestamp, occurrences) VALUES(?, ?, ?, ?, ?)";
+		return "INSERT INTO " + TABLE_NAME + "(channel, emote, username, timestamp, total_occurrences, occurrences) VALUES(?, ?, ?, ?, ?, ?)";
 	}
 
 	@Override
@@ -98,7 +104,8 @@ public class UserEmoteStatsAggregation
 				Types.VARCHAR, /* emote */
 				Types.VARCHAR, /* username */
 				Types.BIGINT, /* timestamp */
-				Types.BIGINT /* occurrences */
+				Types.BIGINT, /* total_occurrences */
+				Types.INTEGER /* occurrences */
 		};
 	}
 }

@@ -52,8 +52,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 		if (stats == null)
 			stats = createNewStatsForKey(key);
 
-		for (INPUT element : elements)
-			updateStats(stats, element);
+		processWindowElements(stats, elements);
 
 		stats.timestamp = context.window().getEnd();
 		collector.collect(stats);
@@ -95,7 +94,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
 	protected abstract STATS createNewStatsForKey(KEY key) throws SQLException;
 
-	protected abstract STATS updateStats(STATS stats, INPUT input);
+	protected abstract STATS processWindowElements(STATS stats, Iterable<INPUT> elements);
 
 	public abstract void prepareTable(Statement stmt) throws SQLException;
 
