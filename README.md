@@ -10,7 +10,7 @@
 
 4. Submit app with `submit.sh`
 
-5. After the first start, no emotes will be tracked. You can add them to the `emote_table` table in the Postgres DB. The app will reload this emote list every 60 seconds:
+5. After the first start, no emotes will be tracked. You can add them to the `emote` table in the Postgres DB. The app will reload this emote list every 60 seconds:
 
 	1. Determine container id of the postgres db container (`docker ps`)
 
@@ -21,7 +21,7 @@
 	4. Insert your emotes:
 	
 		```sql
-		INSERT INTO emote_table(emote) VALUES ('Kappa'), ('PogChamp'), ...;
+		INSERT INTO emotes(emote) VALUES ('Kappa'), ('PogChamp'), ...;
 		```
 
 The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
