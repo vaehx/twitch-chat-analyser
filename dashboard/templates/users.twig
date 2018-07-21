@@ -18,7 +18,7 @@
 		<tr>
 			<td align="right">{{ loop.index }}.</td>
 			<td><a href="{{ path('user', { username: user.username }) }}">{{ user.username }}</a></td>
-			<td>{{ user.message_count }}</td>
+			<td>{{ user.total_messages }}</td>
 		</tr>
 	{% endfor %}
 	</tbody>

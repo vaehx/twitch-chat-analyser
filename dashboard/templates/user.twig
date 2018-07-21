@@ -16,7 +16,7 @@
 		var chartData = [
 			['Time', 'Messages'],
 			{% for stat in stats %}
-				[new Date({{ stat.timestamp }}), {{ stat.message_count }}],
+				[new Date({{ stat.timestamp }}), {{ stat.total_messages }}],
 			{% endfor %}
 		];
 		var data = google.visualization.arrayToDataTable(chartData);

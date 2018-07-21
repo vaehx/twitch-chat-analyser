@@ -15,7 +15,7 @@
 		chartData = [
 			['Time', 'Occurences'],
 			{% for stat in stats %}
-				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+				[new Date({{ stat.timestamp }}), {{ stat.total_occurrences }}],
 			{% endfor %}
 		];
 	}

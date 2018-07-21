@@ -39,7 +39,6 @@
 	function drawCharts() {
 		drawEmoteCharts();
 		drawTotalsChart();
-		drawUserChart();
 	}
 </script>
 
@@ -62,10 +61,10 @@
 			'data': [
 				['Time', 'Occurrences'],
 				{% for stat in emoteStat %}
-				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
+				[new Date({{ stat.timestamp }}), {{ stat.total_occurrences }}],
 				{% endfor %}
 			],
-			'minOccurrences': {{ emoteStat[0].occurrences }}
+			'minOccurrences': {{ emoteStat[0].total_occurrences }}
 		};
 		{% endfor %}
 		return chartData;
@@ -123,7 +122,7 @@
 		var chartData = [
 			[ 'Time', 'Messages' ]
 			{%- for stat in channelStats -%}
-			,[new Date({{ stat.timestamp }}), {{ stat.message_count }}]
+			,[new Date({{ stat.timestamp }}), {{ stat.total_messages }}]
 			{%- endfor -%}
 		];
 		var data = google.visualization.arrayToDataTable(chartData);
@@ -136,15 +135,30 @@
 
 <br />
 
-<h2>Recent chatters</h2>
+<h2>Top recent chatters</h2>
 <p>
 	<a href="{{ path('users') }}">User Leaderboard</a>
 </p>
 
+<table class="table table-dark table-striped table-hover">
+	<thead>
+		<tr>
+			<th width="40%">Username</th>
+			<th>Messages</th>
+		</tr>
+	</thead>
+	<tbody>
+	{% for chatter in recentChatters %}
+		<tr>
+			<td><a href="{{ path('user', { username: chatter.username }) }}">{{ chatter.username }}</a></td>
+			<td>{{ chatter.messages }}</td>
+		</tr>
+	{% endfor %}
+	</tbody>
+</table>
+
 <div>
-	{% for chatter in recentChatters %}{{ chatter }}{% if not loop.last %}, {% endif %}{% endfor %}
-	{% set moreChatters = recentChattersTotal - recentChatters|length %}
-	{% if moreChatters > 0 %}(and {{ moreChatters }} more...){% endif %}
+	{% if recentChattersMore > 0 %}(and {{ recentChattersMore }} more...){% endif %}
 </div>
 
 
