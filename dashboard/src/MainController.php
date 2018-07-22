@@ -69,20 +69,25 @@ class MainController implements ControllerProviderInterface
 
 			// Chatters active in selected time window
 			$stmt = $db->query("SELECT channel, username, SUM(messages) AS messages FROM ".self::USER_STATS_TABLE
-							. " WHERE timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+							. " WHERE timestamp >= $windowStartTime AND timestamp <= $windowEndTime AND messages IS NOT NULL"
 							. " GROUP BY channel, username"
 							. " ORDER BY SUM(messages) DESC");
 			$recentChatters = [];
-			$recentChattersMore = 0;
-			$i = 0;
-			while ($row = $stmt->fetch())
-			{
-				$i++;
-				if ($i <= 25)
-					$recentChatters[] = $row;
-				else
-					$recentChattersMore++;
-			}
+			$shownRecentChatters = 25;
+			$recentChattersMore = $stmt->rowCount();
+			for ($i = 0; $i < $shownRecentChatters && ($row = $stmt->fetch()); ++$i)
+				$recentChatters[] = $row;
+
+			// Emotes active in selected time window
+			$stmt = $db->query("SELECT channel, emote, SUM(occurrences) AS occurrences FROM ".self::EMOTE_STATS_TABLE
+							. " WHERE timestamp >= $windowStartTime AND timestamp <= $windowEndTime AND occurrences IS NOT NULL"
+							. " GROUP BY channel, emote"
+							. " ORDER BY SUM(occurrences) DESC");
+			$recentEmotes = [];
+			$shownRecentEmotes = 25;
+			$recentEmotesMore = $stmt->rowCount();
+			for ($i = 0; $i < $shownRecentEmotes && ($row = $stmt->fetch()); ++$i)
+				$recentEmotes[] = $row;
 
 			return $app['twig']->render('index.twig', [
 				'shownMinutes' => $shownMinutes,
@@ -90,7 +95,9 @@ class MainController implements ControllerProviderInterface
 				'emoteStats' => $emoteStats,
 				'emoteStatsMinOccurrences' => $minEmoteOccurrences,
 				'recentChatters' => $recentChatters,
-				'recentChattersMore' => $recentChattersMore
+				'recentChattersMore' => $recentChattersMore,
+				'recentEmotes' => $recentEmotes,
+				'recentEmotesMore' => $recentEmotesMore
 			]);
 		})->bind('index');
 
@@ -335,6 +342,10 @@ class MainController implements ControllerProviderInterface
 				['timestamp' => $endTime, $fieldName => 0]
 			];
 		}
+
+		// Do not up-sample the timeseries
+		if ($numPoints >= $n)
+			return $series;
 
 		$first = reset($series);
 		$last = end($series);
