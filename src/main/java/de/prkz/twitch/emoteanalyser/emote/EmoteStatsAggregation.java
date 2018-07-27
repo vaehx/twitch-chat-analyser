@@ -1,12 +1,12 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
+import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.types.Row;
 
 import java.sql.*;
 
@@ -57,14 +57,12 @@ public class EmoteStatsAggregation
 	}
 
 	@Override
-	protected EmoteStats processWindowElements(EmoteStats stats, Iterable<Emote> emotes) {
+	protected void processWindowElements(EmoteStats stats, Iterable<Emote> emotes) {
 		stats.occurrences = 0;
 		for (Emote emote : emotes) {
 			stats.occurrences++;
 			stats.totalOccurrences++;
 		}
-
-		return stats;
 	}
 
 	@Override
@@ -75,33 +73,18 @@ public class EmoteStatsAggregation
 				"timestamp BIGINT NOT NULL," +
 				"total_occurrences BIGINT NOT NULL DEFAULT 0," +
 				"occurrences INT NOT NULL DEFAULT 0," +
-				"PRIMARY KEY(emote, timestamp))");
+				"PRIMARY KEY(channel, emote, timestamp))");
 	}
 
 	@Override
-	protected Row getRowFromStats(EmoteStats stats) {
-		Row row = new Row(5);
-		row.setField(0, stats.channel);
-		row.setField(1, stats.emote);
-		row.setField(2, stats.timestamp);
-		row.setField(3, stats.totalOccurrences);
-		row.setField(4, stats.occurrences);
-		return row;
-	}
-
-	@Override
-	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, emote, timestamp, total_occurrences, occurrences) VALUES(?, ?, ?, ?, ?)";
-	}
-
-	@Override
-	protected int[] getRowColumnTypes() {
-		return new int[] {
-				Types.VARCHAR, /* channel */
-				Types.VARCHAR, /* emote */
-				Types.BIGINT, /* timestamp */
-				Types.BIGINT, /* total_occurrences */
-				Types.INTEGER /* occurrences*/
-		};
+	protected Iterable<OutputStatement> prepareStatsForOutput(EmoteStats stats) {
+		return OutputStatement.buildBatch()
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, total_occurrences, occurrences) " +
+						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.emote + "', " + stats.totalOccurrences + ", " + stats.occurrences + ")")
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, total_occurrences, occurrences) " +
+						"VALUES(0, '" + stats.channel + "', '" + stats.emote + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
+						"ON CONFLICT(channel, emote, timestamp) DO UPDATE " +
+							"SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
+				.finish();
 	}
 }

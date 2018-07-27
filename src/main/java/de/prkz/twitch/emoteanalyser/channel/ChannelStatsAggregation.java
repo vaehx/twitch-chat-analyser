@@ -2,16 +2,15 @@ package de.prkz.twitch.emoteanalyser.channel;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
+import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.types.Row;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
 
 public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, String, ChannelStats> {
 
@@ -42,14 +41,12 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 	}
 
 	@Override
-	protected ChannelStats processWindowElements(ChannelStats stats, Iterable<Message> messages) {
+	protected void processWindowElements(ChannelStats stats, Iterable<Message> messages) {
 		stats.messageCount = 0;
 		for (Message message : messages) {
 			stats.messageCount++;
 			stats.totalMessageCount++;
 		}
-
-		return stats;
 	}
 
 	@Override
@@ -63,28 +60,15 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 	}
 
 	@Override
-	protected Row getRowFromStats(ChannelStats channelStats) {
-		Row row = new Row(4);
-		row.setField(0, channelStats.channel);
-		row.setField(1, channelStats.timestamp);
-		row.setField(2, channelStats.totalMessageCount);
-		row.setField(3, channelStats.messageCount);
-		return row;
-	}
-
-	@Override
-	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, timestamp, total_messages, messages) VALUES(?, ?, ?, ?)";
-	}
-
-	@Override
-	protected int[] getRowColumnTypes() {
-		return new int[] {
-				Types.VARCHAR, /* channel */
-				Types.BIGINT, /* timestamp */
-				Types.BIGINT, /* total_messages */
-				Types.INTEGER /* messages */
-		};
+	protected Iterable<OutputStatement> prepareStatsForOutput(ChannelStats stats) {
+		return OutputStatement.buildBatch()
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
+						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ")")
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
+						"VALUES(0, '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
+						"ON CONFLICT(channel, timestamp) DO UPDATE " +
+							"SET total_messages = excluded.total_messages, messages = excluded.messages")
+				.finish();
 	}
 
 	@Override

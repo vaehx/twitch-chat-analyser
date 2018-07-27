@@ -2,12 +2,12 @@ package de.prkz.twitch.emoteanalyser.user;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
+import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.types.Row;
 
 import java.sql.*;
 
@@ -57,14 +57,12 @@ public class UserStatsAggregation
 	}
 
 	@Override
-	protected UserStats processWindowElements(UserStats stats, Iterable<Message> messages) {
+	protected void processWindowElements(UserStats stats, Iterable<Message> messages) {
 		stats.messageCount = 0;
 		for (Message message : messages) {
 			stats.messageCount++;
 			stats.totalMessageCount++;
 		}
-
-		return stats;
 	}
 
 	@Override
@@ -79,29 +77,14 @@ public class UserStatsAggregation
 	}
 
 	@Override
-	protected Row getRowFromStats(UserStats stats) {
-		Row row = new Row(5);
-		row.setField(0, stats.channel);
-		row.setField(1, stats.username);
-		row.setField(2, stats.timestamp);
-		row.setField(3, stats.totalMessageCount);
-		row.setField(4, stats.messageCount);
-		return row;
-	}
-
-	@Override
-	protected String getInsertSQL() {
-		return "INSERT INTO " + TABLE_NAME + "(channel, username, timestamp, total_messages, messages) VALUES(?, ?, ?, ?, ?)";
-	}
-
-	@Override
-	protected int[] getRowColumnTypes() {
-		return new int[] {
-				Types.VARCHAR, /* channel */
-				Types.VARCHAR, /* username */
-				Types.BIGINT, /* timestamp */
-				Types.BIGINT, /* total_messages */
-				Types.INTEGER /* messages */
-		};
+	protected Iterable<OutputStatement> prepareStatsForOutput(UserStats stats) {
+		return OutputStatement.buildBatch()
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
+						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.username + "', " + stats.totalMessageCount + ", " + stats.messageCount + ")")
+				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
+						"VALUES(0, '" + stats.channel + "', '" + stats.username + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
+						"ON CONFLICT(channel, username, timestamp) DO UPDATE " +
+							"SET total_messages = excluded.total_messages, messages = excluded.messages")
+				.finish();
 	}
 }
