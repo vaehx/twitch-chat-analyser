@@ -3,9 +3,15 @@
 
 <p><a href="{{ path('index') }}"><i class="fa fa-long-arrow-left"></i> Back to overview</a></p>
 
+{% embed 'period_picker.twig' %}
+	{% block action %}{{ path('emote', { emote: emote }) }}{% endblock %}
+{% endembed %}
+
 <h2>Emote '{{ emote }}'</h2>
 
 <p>
+	Shown time range: {{ (windowEnd - windowStart)|date_duration }}<br />
+	Type: {{ emoteType|emote_type_name }}<br />
 	Occurrences (emotes): {{ totalOccurrences }}<br />
 	Occurrences (emote_totals): {{ totalOccurrences2 }}
 </p>

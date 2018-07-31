@@ -1,0 +1,15 @@
+<div class="pull-right">
+	<form action="{% block action %}{% endblock %}" method="GET" class="form-inline">
+		<label for="shownPeriodValue" class="mr-2">Show last</label>
+		<input type="number" style="width: 60px" min="1" step="1" class="form-control form-control-sm mr-1" value="{{ shownPeriodValue }}" name="shownPeriodValue" pattern="[0-9]+" />
+		<select name="shownPeriodUnit" class="form-control form-control-sm mr-1">
+			<option value="minutes" {{ shownPeriodUnit == 'minutes' ? 'selected' }}>minutes</option>
+			<option value="hours" {{ shownPeriodUnit == 'hours' ? 'selected' }}>hours</option>
+			<option value="days" {{ shownPeriodUnit == 'days' ? 'selected' }}>days</option>
+			<option value="weeks" {{ shownPeriodUnit == 'weeks' ? 'selected' }}>weeks</option>
+			<option value="months" {{ shownPeriodUnit == 'months' ? 'selected' }}>months</option>
+			<option value="years" {{ shownPeriodUnit == 'years' ? 'selected' }}>years</option>
+		</select>
+		<button type="submit" class="btn btn-sm btn-primary">Go</button>
+	</form>
+</div>

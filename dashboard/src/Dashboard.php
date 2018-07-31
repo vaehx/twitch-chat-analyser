@@ -36,6 +36,21 @@ class Dashboard extends SilexApplication
 			return rtrim($formatted);
 		}));
 
+		$this['twig']->addFilter(new \Twig_SimpleFilter('emote_type_name', function($type) {
+			$typenames = [
+				0 => 'Channel Emote',
+				1 => 'Global Emote',
+				2 => 'BTTV Emote',
+				3 => 'FFZ Emote',
+				4 => 'Emoji',
+			];
+
+			if (array_key_exists($type, $typenames))
+				return $typenames[$type];
+			else
+				return 'Other';
+		}));
+
 		$this['db'] = new \PDO("pgsql:dbname=twitch;host=db", "postgres", "password");
 	}
 }

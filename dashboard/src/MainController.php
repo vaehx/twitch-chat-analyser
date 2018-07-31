@@ -8,7 +8,7 @@ use Symfony\Component\HttpFoundation\Request;
 
 class MainController implements ControllerProviderInterface
 {
-	const EXCLUDED_CHATTERS = ["nightbot", "notheowner", "_streamelements_", "scootycoolguy"];
+	const EXCLUDED_CHATTERS = ["nightbot", "notheowner", "scootycoolguy"];
 
 	const EMOTES_TABLE = "emotes";
 	const CHANNEL_STATS_TABLE = "channel_stats";
@@ -28,12 +28,13 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/', function(Request $request) use($app, $db) {
 			// Determine visualized window bounds
-			$shownMinutes = $request->query->get('shownMinutes', 24 * 60);
-			if ($shownMinutes <= 0)
-				$shownMinutes = 1;
+			$shownPeriodValue = $request->query->get('shownPeriodValue', 24);
+			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
+			if ($shownPeriodValue <= 0)
+				$shownPeriodValue = 1;
 
 			$windowEndTime = self::getCurrentTimestamp();
-			$windowStartTime = $windowEndTime - $shownMinutes * 60 * 1000;
+			$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
 
 			// Get emote statistics
 			$emoteStats = [];
@@ -90,7 +91,8 @@ class MainController implements ControllerProviderInterface
 				$recentEmotes[] = $row;
 
 			return $app['twig']->render('index.twig', [
-				'shownMinutes' => $shownMinutes,
+				'shownPeriodValue' => $shownPeriodValue,
+				'shownPeriodUnit' => $shownPeriodUnit,
 				'channelStats' => $channelStats,
 				'emoteStats' => $emoteStats,
 				'emoteStatsMinOccurrences' => $minEmoteOccurrences,
@@ -106,12 +108,18 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/emotes', function(Request $request) use($app, $db) {
 			// Real occurrences (including all chatters)
-			$stmt = $db->query("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::EMOTE_STATS_TABLE.""
-							. " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
+			$stmt = $db->query("SELECT emotes.emote, type, total_occurrences FROM emotes
+								LEFT JOIN (SELECT emote, total_occurrences FROM emote_stats WHERE timestamp = 0) es
+									ON es.emote=emotes.emote
+								ORDER BY es.total_occurrences DESC");
+			if ($stmt === false)
+				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
+
 			$emotes = [];
 			while ($row = $stmt->fetch())
 			{
 				$emotes[$row['emote']] = [
+					'type' => $row['type'],
 					'real_occurrences' => $row['total_occurrences'],
 					'occurrences' => 0,
 					'standardDeviation' => null
@@ -119,23 +127,23 @@ class MainController implements ControllerProviderInterface
 			}
 
 			// Leaderboard without excluded chatters
-			$stmt = $db->query("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. " WHERE username NOT IN " . self::getExcludedChattersTuple()
-							. " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
-			while ($row = $stmt->fetch())
-			{
-				$emote = $row['emote'];
-				if (!isset($emotes[$emote]))
-					$emotes[$emote] = ['real_occurrences' => 0];
+			// $stmt = $db->query("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
+			// 				. " WHERE username NOT IN " . self::getExcludedChattersTuple()
+			// 				. " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
+			// while ($row = $stmt->fetch())
+			// {
+			// 	$emote = $row['emote'];
+			// 	if (!isset($emotes[$emote]))
+			// 		$emotes[$emote] = ['real_occurrences' => 0];
 
-				$emotes[$emote]['occurrences'] = $row['total_occurrences'];
+			// 	$emotes[$emote]['occurrences'] = $row['total_occurrences'];
 
-				// Calculate standard deviation of emote usages by users
-				/*$stmt2 = $db->query("SELECT MAX(total_occurrences) FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(total_occurrences)");
-				$occurrences = array_map(function($row) { return $row[0]; }, $stmt2->fetchAll());
-				$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);*/
-				$emotes[$emote]['standardDeviation'] = 0;
-			}
+			// 	// Calculate standard deviation of emote usages by users
+			// 	/*$stmt2 = $db->query("SELECT MAX(total_occurrences) FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username ORDER BY MAX(total_occurrences)");
+			// 	$occurrences = array_map(function($row) { return $row[0]; }, $stmt2->fetchAll());
+			// 	$emotes[$emote]['standardDeviation'] = self::getDeviationFrom($occurrences, $emotes[$emote]['real_occurrences']);*/
+			// 	$emotes[$emote]['standardDeviation'] = 0;
+			// }
 
 			// Sort by real occurrences
 			$sortBy = $request->query->get('sortBy', 'real_occurrences');
@@ -149,6 +157,11 @@ class MainController implements ControllerProviderInterface
 					return ($a[$sortBy] < $b[$sortBy]) ? -1 : 1;
 			});
 
+			// Assign ranks
+			$rank = 1;
+			foreach ($emotes as $emoteName => $emoteStats)
+				$emotes[$emoteName]['rank'] = $rank++;
+
 			return $app['twig']->render('emotes.twig', [
 				'emotes' => $emotes]);
 		})->bind('emotes');
@@ -156,12 +169,28 @@ class MainController implements ControllerProviderInterface
 		/**
 		 * User Leaderboard for an emote
 		 */
-		$route->get('/emote/{emote}', function($emote) use($app, $db) {
-			$stmt = $db->query("SELECT emote FROM ".self::EMOTES_TABLE." WHERE emote='$emote' LIMIT 1");
+		$route->get('/emote/{emote}', function(Request $request, $emote) use($app, $db) {
+			// Determine visualized window bounds
+			$shownPeriodValue = $request->query->get('shownPeriodValue', 0);
+			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
+			
+			$windowEndTime = self::getCurrentTimestamp();
+			if ($shownPeriodValue <= 0)
+				$windowStartTime = 1;
+			else
+				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
+			
+			// Get emote metadata
+			$stmt = $db->query("SELECT emote, type FROM ".self::EMOTES_TABLE." WHERE emote='$emote' LIMIT 1");
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "Emote not found");
+
+			$emoteType = $stmt->fetch()['type'];
 			
-			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE." WHERE emote='$emote' ORDER BY timestamp ASC");
+			// Get emote stats
+			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE
+							. " WHERE emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+							. " ORDER BY timestamp ASC");
 			$stats = $stmt->fetchAll();
 			$minOccurrences = $stats[0]['total_occurrences'];
 			$stats = self::resampleTimeSeries($stats, 'total_occurrences', self::DEFAULT_SERIES_RESOLUTION);
@@ -169,12 +198,13 @@ class MainController implements ControllerProviderInterface
 			// Get total occurrences
 			$stmt = $db->query("SELECT SUM(total_occurrences) FROM ("
 							. "   SELECT MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. "   WHERE emote='$emote' AND username != '_streamelements_' GROUP BY username) a");
+							. "   WHERE emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+							. "   GROUP BY username) a");
 			$totalOccurences = $stmt->fetch()[0];
 
 			// Leaderboard
 			$stmt = $db->query("SELECT username, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. " WHERE emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple()
+							. " WHERE emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple() . " AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " GROUP BY username ORDER BY MAX(total_occurrences) DESC LIMIT 1000");
 			$leaderboard = [];
 			while ($row = $stmt->fetch())
@@ -183,8 +213,17 @@ class MainController implements ControllerProviderInterface
 				$leaderboard[] = $row;
 			}
 
+			// Trim window range to actual data
+			$windowStartTime = $stats[0]['timestamp'];
+			$windowEndTime = $stats[max(0, count($stats) -1)]['timestamp'];
+
 			return $app['twig']->render('emote.twig', [
 				'emote' => $emote,
+				'emoteType' => $emoteType,
+				'shownPeriodValue' => $shownPeriodValue,
+				'shownPeriodUnit' => $shownPeriodUnit,
+				'windowStart' => $windowStartTime,
+				'windowEnd' => $windowEndTime,
 				'leaderboard' => $leaderboard,
 				'stats' => $stats,
 				'totalOccurrences' => $totalOccurences,
@@ -195,12 +234,33 @@ class MainController implements ControllerProviderInterface
 		/**
 		 * Per-user stats for an emote
 		 */
-		$route->get('/emote/{emote}/user/{username}', function($emote, $username) use($app, $db) {
-			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE." WHERE emote='$emote' AND username='$username' ORDER BY timestamp ASC");
+		$route->get('/emote/{emote}/user/{username}', function(Request $request, $emote, $username) use($app, $db) {
+			// Determine visualized window bounds
+			$shownPeriodValue = $request->query->get('shownPeriodValue', 0);
+			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
+			
+			$windowEndTime = self::getCurrentTimestamp();
+			if ($shownPeriodValue <= 0)
+				$windowStartTime = 1;
+			else
+				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
+			
+			// Get stats
+			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE
+							. " WHERE emote='$emote' AND username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+							. " ORDER BY timestamp ASC");
 			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'total_occurrences', self::DEFAULT_SERIES_RESOLUTION);
 			
+			// Trim window range into data range
+			$windowStartTime = $stats[0]['timestamp'];
+			$windowEndTime = $stats[max(0, count($stats) - 1)]['timestamp'];
+
 			return $app['twig']->render('user_emote.twig', [
 				'emote' => $emote,
+				'shownPeriodValue' => $shownPeriodValue,
+				'shownPeriodUnit' => $shownPeriodUnit,
+				'windowStart' => $windowStartTime,
+				'windowEnd' => $windowEndTime,
 				'username' => $username,
 				'stats' => $stats]);
 		})->bind('emote_user');
@@ -208,33 +268,46 @@ class MainController implements ControllerProviderInterface
 		/**
 		 * Users leaderboard on total message count
 		 */
-		$route->get('/users', function() use($app, $db) {
+		$route->get('/users', function(Request $request) use($app, $db) {
 			$excluded_users = ["nightbot"];
+			$max_rank = $request->query->get('max', 100);
 			
-			$stmt = $db->query("SELECT username, MAX(total_messages) AS total_messages FROM ".self::USER_STATS_TABLE." GROUP BY username ORDER BY MAX(total_messages) DESC LIMIT 50");
+			$stmt = $db->query("SELECT username, total_messages FROM ".self::USER_STATS_TABLE." WHERE timestamp = 0 ORDER BY total_messages DESC LIMIT ".($max_rank + count(self::EXCLUDED_CHATTERS)));
 			if ($stmt === false)
 				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
 			
 			$leaderboard = [];
+			$rank = 1;
 			while ($row = $stmt->fetch())
 			{
 				$username = $row['username'];
-				if (in_array($username, self::EXCLUDED_CHATTERS))
-					continue;
-
-				$leaderboard[] = ['username' => $row['username'], 'total_messages' => $row['total_messages']];
+				$is_bot = in_array($username, self::EXCLUDED_CHATTERS);
+				$row['is_bot'] = $is_bot;
+				$row['rank'] = $is_bot ? '' : $rank++;
+				$leaderboard[] = $row;
 			}
 
-			return $app['twig']->render('users.twig', ['users' => $leaderboard]);
+			return $app['twig']->render('users.twig', [
+				'users' => $leaderboard,
+				'shownRanks' => $max_rank
+			]);
 		})->bind('users');
 
 		/**
 		 * User message count
 		 */
-		$route->get('/user/{username}', function($username) use($app, $db) {
-			$windowStartTime = 0;
-			$windowEndTime = self::getCurrentTimestamp();
+		$route->get('/user/{username}', function(Request $request, $username) use($app, $db) {
+			// Determine visualized window bounds
+			$shownPeriodValue = $request->query->get('shownPeriodValue', 0);
+			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
 			
+			$windowEndTime = self::getCurrentTimestamp();
+			if ($shownPeriodValue <= 0)
+				$windowStartTime = 1;
+			else
+				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
+			
+			// User message count stats
 			$stmt = $db->query("SELECT timestamp, total_messages FROM ".self::USER_STATS_TABLE.""
 							. " WHERE username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " ORDER BY timestamp ASC");
@@ -242,12 +315,13 @@ class MainController implements ControllerProviderInterface
 				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
 
 			if ($stmt->rowCount() == 0)
-				$app->abort(404, "User not found");
+				$app->abort(404, "No records found for this user in the given time range.");
 
 			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'total_messages', self::DEFAULT_SERIES_RESOLUTION);
 			if ($windowStartTime == 0)
 				$windowStartTime = $stats[0]['timestamp'];
 
+			// Emote leaderboard for this user
 			$stmt = $db->query("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
 							. " WHERE username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
@@ -255,8 +329,14 @@ class MainController implements ControllerProviderInterface
 			while ($row = $stmt->fetch())
 				$emoteUsages[$row['emote']] = $row['total_occurrences'];
 			
+			// Trim window range to actual data
+			$windowStartTime = $stats[0]['timestamp'];
+			$windowEndTime = $stats[max(0, count($stats) - 1)]['timestamp'];
+
 			return $app['twig']->render('user.twig', [
 				'username' => $username,
+				'shownPeriodValue' => $shownPeriodValue,
+				'shownPeriodUnit' => $shownPeriodUnit,
 				'windowStart' => $windowStartTime,
 				'windowEnd' => $windowEndTime,
 				'stats' => $stats,
@@ -319,6 +399,27 @@ class MainController implements ControllerProviderInterface
 	static function getCurrentTimestamp()
 	{
 		return round(microtime(true) * 1000);
+	}
+
+	static function convertTimePeriod($fromValue, $fromUnit, $toUnit)
+	{
+		return $fromValue * self::getTimeUnitSecondsMultiplier($fromUnit)
+			/ self::getTimeUnitSecondsMultiplier($toUnit);
+	}
+
+	// Returns number of seconds in the given time unit, or 1 if not known
+	// Note that months are assumed to be all 30 days long and a year be 365 days long.
+	static function getTimeUnitSecondsMultiplier($unit)
+	{
+		$units = [
+			'minutes' => 60,
+			'hours' => 60 * 60,
+			'days' => 24 * 60 * 60,
+			'weeks' => 7 * 24 * 60 * 60,
+			'months' => 30 * 24 * 60 * 60,
+			'years' => 365 * 24 * 60 * 60,
+		];
+		return array_key_exists($unit, $units) ? $units[$unit] : 1;
 	}
 
 	// Re-Samples the given time series to reduce or increase resolution in time domain

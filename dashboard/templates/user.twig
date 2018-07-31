@@ -3,11 +3,13 @@
 
 <p><a href="{{ path('users') }}"><i class="fa fa-long-arrow-left"></i> Back to user leaderboard</a></p>
 
+{% embed 'period_picker.twig' %}
+	{% block action%}{{ path('user', { username: username }) }}{% endblock %}
+{% endembed %}
+
 <h2>User '{{ username }}'</h2>
 
-<p>
-	<b>Shown time range:</b> {{ (windowEnd - windowStart)|date_duration }}
-</p>
+<p><b>Shown time range:</b> {{ (windowEnd - windowStart)|date_duration }}</p>
 
 <h3>Message count</h3>
 <div id="user-graph" style="width:800px; height:300px"></div>

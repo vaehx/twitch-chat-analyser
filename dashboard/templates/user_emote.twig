@@ -3,7 +3,15 @@
 
 <p><a href="{{ path('emote', { emote: emote }) }}"><i class="fa fa-long-arrow-left"></i> Back to emote '{{ emote }}'</a></p>
 
+{% embed 'period_picker.twig' %}
+	{% block action %}{{ path('emote_user', { emote: emote, username: username }) }}{% endblock %}
+{% endembed %}
+
 <h2>Emote '<a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a>' by user '<a href="{{ path('user', {username: username}) }}">{{ username }}</a>'</h2>
+
+<p>
+	<b>Shown time range:</b> last {{ (windowEnd - windowStart)|date_duration }}
+</p>
 
 <b>{{ username }}</b>
 <div id="user-graph" style="width:800px; height:300px"></div>

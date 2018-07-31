@@ -26,14 +26,9 @@
 {% endblock %}
 {% block content %}
 
-<div class="pull-right">
-	<form action="{{ path('index') }}" method="GET" class="form-inline">
-		<label for="shownMinutes" class="mr-2">Show last</label>
-		<input type="text" size="5" class="form-control" value="{{ shownMinutes }}" name="shownMinutes" pattern="[0-9]+" />
-		<label for="shownMinutes" class="mx-2">minutes</label>
-		<button type="submit" class="btn btn-primary">Go</button>
-	</form>
-</div>
+{% embed 'period_picker.twig' %}
+	{% block action %}{{ path('index') }}{% endblock %}
+{% endembed %}
 
 <script type="text/javascript">
 	function drawCharts() {

@@ -5,20 +5,42 @@
 
 <h2>Emote leaderboard</h2>
 
-<p>
+<!--<p>
 	<b>Excluded chatters:</b>
 	{% for username in constant('Dashboard\\MainController::EXCLUDED_CHATTERS') %}
 		<a href="{{ path('user', { username: username }) }}">{{ username }}</a>{{ not loop.last ? ', ' }}
 	{% endfor %}
-</p>
+</p>-->
+
+<div id="emotes-chart" style="width: 1000px; height: 350px;"></div>
+
+<script type="text/javascript">
+	function drawCharts() {
+		var chartData = [
+			['Emote', 'Occurrences']
+			{% for emoteName, emoteStats in emotes if emoteStats.rank < 10 %}, ['{{ emoteName }}', {{ emoteStats.real_occurrences }}]{% endfor %}
+		];
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.ColumnChart(document.getElementById('emotes-chart'));
+		emoteChartOptions = {
+			legend: { position: 'none' },
+			chartArea: {
+				right: '0%'
+			}
+		};
+		$.extend(true, emoteChartOptions, chartOptions);
+		chart.draw(data, emoteChartOptions);
+	}
+</script>
 
 <table class="table table-dark table-striped table-hover">
 	<thead>
 		<tr>
 			<th width="60px">Rank</th>
 			<th>Emote</th>
+			<th>Type</th>
 			<th><a href="?sortBy=real_occurrences">Total<br />Occurrences</a></th>
-			<th><a href="?sortBy=occurrences">Occurrences w/o <br /> excluded chatters</a></th>
+			<!--<th><a href="?sortBy=occurrences">Occurrences w/o <br /> excluded chatters</a></th>-->
 			<!--<th><a href="?sortBy=standardDeviation">SD</a></th>-->
 		</tr>
 	</thead>
@@ -27,8 +49,9 @@
 	<tr>
 		<td align="right">{{ loop.index }}.</td>
 		<td><a href="{{ path('emote', { emote: emoteName }) }}">{{ emoteName }}</a></td>
+		<td>{{ emoteStats.type|emote_type_name }}</td>
 		<td>{{ emoteStats.real_occurrences }}</td>
-		<td>{{ emoteStats.occurrences }}</td>
+		<!--<td>{{ emoteStats.occurrences }}</td>-->
 		<!--<td>{{ emoteStats.standardDeviation }}</td>-->
 	</tr>
 {% endfor %}

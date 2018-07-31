@@ -5,6 +5,14 @@
 
 <h2>User leaderboard</h2>
 
+<div class="pull-right mb-2">
+	<form action="{{ path('users') }}" method="GET" class="form-inline">
+		<label for="max" class="mr-2">Shown ranks:</label>
+		<input type="number" name="max" style="width: 90px" class="form-control form-control-sm mr-2" min="1" step="1" value="{{ shownRanks }}" />
+		<button type="submit" class="btn btn-sm btn-primary">Go</button>
+	</form>
+</div>
+
 <table class="table table-dark table-striped table-hover">
 	<thead>
 		<tr>
@@ -16,8 +24,8 @@
 	<tbody>
 	{% for user in users %}
 		<tr>
-			<td align="right">{{ loop.index }}.</td>
-			<td><a href="{{ path('user', { username: user.username }) }}">{{ user.username }}</a></td>
+			<td align="right">{{ user.rank ? user.rank ~ '.' }}</td>
+			<td><a href="{{ path('user', { username: user.username }) }}">{% if user.is_bot %}<i class="fa fa-cog"></i> {% endif %}{{ user.username }}</a></td>
 			<td>{{ user.total_messages }}</td>
 		</tr>
 	{% endfor %}
