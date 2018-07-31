@@ -12,20 +12,23 @@
 	{% endfor %}
 </p>-->
 
-<div id="emotes-chart" style="width: 1000px; height: 350px;"></div>
+<div id="emotes-chart" style="width: 1000px; height: 380px;"></div>
+
+<br />
 
 <script type="text/javascript">
 	function drawCharts() {
 		var chartData = [
 			['Emote', 'Occurrences']
-			{% for emoteName, emoteStats in emotes if emoteStats.rank < 10 %}, ['{{ emoteName }}', {{ emoteStats.real_occurrences }}]{% endfor %}
+			{% for emoteName, emoteStats in emotes if emoteStats.rank < 25 %}, ['{{ emoteName }}', {{ emoteStats.real_occurrences }}]{% endfor %}
 		];
 		var data = google.visualization.arrayToDataTable(chartData);
 		var chart = new google.visualization.ColumnChart(document.getElementById('emotes-chart'));
 		emoteChartOptions = {
 			legend: { position: 'none' },
 			chartArea: {
-				right: '0%'
+				right: '0%',
+				bottom: '80px'
 			}
 		};
 		$.extend(true, emoteChartOptions, chartOptions);
