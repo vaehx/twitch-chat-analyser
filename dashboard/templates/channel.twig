@@ -1,0 +1,183 @@
+{% extends 'layout.twig' %}
+{% block additionalHeaders %}
+<style type="text/css">
+	#emote-charts .emote-stat-chart {
+		display: inline-block;
+		vertical-align: top;
+		width: 33%;
+		margin-bottom: 20px;
+	}
+	#emote-charts h4 {
+		margin-top: 5px;
+		margin-bottom: 5px;
+	}
+	#emote-charts .chart {
+		height: 240px;
+	}
+	#emote-charts #emote-stats-chart-template {
+		display: none;
+	}
+	#total-stats-chart {
+		position: relative;
+		left: auto;
+		right: auto;
+	}
+</style>
+{% endblock %}
+{% block content %}
+
+{% embed 'period_picker.twig' %}
+	{% block action %}{{ path('channel', { channel: channel }) }}{% endblock %}
+{% endembed %}
+
+<script type="text/javascript">
+	function drawCharts() {
+		drawEmoteCharts();
+		drawTotalsChart();
+	}
+</script>
+
+<br />
+
+<h1>Channel {{ channel }}</h1>
+
+<h2>Emote overview</h2>
+<p><a href="{{ path('emotes', { channel: channel }) }}">Emote leaderboard</a></p>
+<div id="emote-charts">
+	<div id="emote-stats-chart-template" class="emote-stat-chart">
+		<h5 class="emote-name">Emote</h5>
+		<div class="chart"></div>
+	</div>
+</div>
+
+<script type="text/javascript">
+	function populateEmotesChartData() {
+		var chartData = {};
+		{% for emote, emoteStat in emoteStats %}
+		chartData['{{ emote }}'] = {
+			'data': [
+				['Time', 'Occurrences'],
+				{% for stat in emoteStat %}
+				[new Date({{ stat.timestamp }}), {{ stat.total_occurrences }}],
+				{% endfor %}
+			],
+			'minOccurrences': {{ emoteStat[0].total_occurrences }}
+		};
+		{% endfor %}
+		return chartData;
+	}
+
+	function drawEmoteChart(data, emote) {
+		var chartDiv = $('#emote-stats-chart-template').clone();
+		chartDiv.attr('id', 'emote-stats-chart-' + emote);
+		chartDiv.find('.emote-name').text(emote);
+		$('#emote-charts').append(chartDiv);
+
+		var chartDataTable = google.visualization.arrayToDataTable(data.data);
+		var chart = new google.visualization.LineChart(chartDiv.find('.chart')[0]);
+		var emoteChartOptions = {
+			colors: [ '#9ae248' ],
+			vAxis: {
+				gridlines: {
+					count: 5
+				},
+				viewWindow: {
+					min: Math.max(0, data.minOccurrences - 200)
+				},
+				viewWindowMode: "explicit"
+			},
+			chartArea: {
+				left: 80,
+				top: 0,
+				width: '75%',
+				height: '80%'
+			}
+		};
+		$.extend(true, emoteChartOptions, chartOptions);
+		chart.draw(chartDataTable, emoteChartOptions);
+	}
+
+	function drawEmoteCharts() {
+		var chartData = populateEmotesChartData();
+		{% for emote in emoteStats|keys %}
+		drawEmoteChart(chartData['{{ emote }}'], '{{ emote }}');
+		{% endfor %}
+	}
+</script>
+
+
+
+<br />
+
+<div id="total-messages">
+	<h2>Total messages</h2>
+	<div id="total-stats-chart" style="width: 1000px; height:400px"></div>
+</div>
+
+<script type="text/javascript">
+	function drawTotalsChart() {
+		var chartData = [
+			[ 'Time', 'Messages' ]
+			{%- for stat in channelStats -%}
+			,[new Date({{ stat.timestamp }}), {{ stat.total_messages }}]
+			{%- endfor -%}
+		];
+		var data = google.visualization.arrayToDataTable(chartData);
+		var chart = new google.visualization.LineChart(document.getElementById('total-stats-chart'));
+		chart.draw(data, chartOptions);
+	}
+</script>
+
+
+
+<br />
+
+<div class="row">
+	<div class="col-md-6">
+		<h2>Top recent chatters</h2>
+		<p><a href="{{ path('users', { channel: channel }) }}">User Leaderboard</a></p>
+
+		<table class="table table-dark table-striped table-hover">
+			<thead>
+				<tr>
+					<th>Username</th>
+					<th>Messages</th>
+				</tr>
+			</thead>
+			<tbody>
+			{% for chatter in recentChatters %}
+				<tr>
+					<td><a href="{{ path('user', { channel: channel, username: chatter.username }) }}">{{ chatter.username }}</a></td>
+					<td>{{ chatter.messages }}</td>
+				</tr>
+			{% endfor %}
+			</tbody>
+		</table>
+		{% if recentChattersMore > 0 %}(and {{ recentChattersMore }} more...){% endif %}
+	</div>
+
+	<div class="col-md-6">
+		<h2>Top recent emotes</h2>
+		<p><a href="{{ path('emotes', { channel: channel }) }}">Emotes Leaderboard</a></p>
+
+		<table class="table table-dark table-striped table-hover">
+			<thead>
+				<tr>
+					<th>Emote</th>
+					<th>Occurrences</th>
+				</tr>
+			</thead>
+			<tbody>
+			{% for emote in recentEmotes %}
+				<tr>
+					<td><a href="{{ path('emote', { channel: channel, emote: emote.emote }) }}">{{ emote.emote }}</a></td>
+					<td>{{ emote.occurrences }}</td>
+				</tr>
+			{% endfor %}
+			</tbody>
+		</table>
+		{% if recentEmotesMore > 0 %}(and {{ recentEmotesMore }} more...){% endif %}
+	</div>
+</div>
+
+{% endblock %}

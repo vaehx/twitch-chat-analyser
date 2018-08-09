@@ -13,10 +13,22 @@
 		.navbar.bg-gray {
 			background-color: #111;
 		}
+		#channel-subnav {
+			border-left: 1px solid #333;
+			margin-left: 20px;
+			padding-left: 20px;
+		}
+		#channel-subnav .channel-subnav-name {
+			font-weight: bold;
+			color: #ccc;
+			padding-right: 15px;
+		}
+
 		body {
 			font-family: Arial;
 			color: #d3d3d3;
 			padding-bottom: 150px;
+			overflow-y: scroll;
 		}
 
 		main {
@@ -89,10 +101,16 @@
 				</button>
 				<div class="collapse navbar-collapse">
 					<ul class="navbar-nav">
-						<li class="nav-item"><a class="nav-link" href="{{ path('index') }}"><i class="fa fa-dashboard"></i> Overview</a></li>
-						<li class="nav-item"><a class="nav-link" href="{{ path('emotes') }}"><i class="fa fa-smile-o"></i> Emotes</a></li>
-						<li class="nav-item"><a class="nav-link" href="{{ path('users') }}"><i class="fa fa-users"></i> Chatters</a></li>
+						<li class="nav-item"><a class="nav-link" href="{{ path('index') }}"><i class="fa fa-home"></i> Channels</a></li>
 					</ul>
+					{% if channel %}
+					<ul class="navbar-nav" id="channel-subnav">
+						<li class="navbar-text channel-subnav-name">{{ channel }}</li>
+						<li class="nav-item"><a class="nav-link" href="{{ path('channel', { channel: channel }) }}"><i class="fa fa-dashboard"></i> Channel overview</a></li>
+						<li class="nav-item"><a class="nav-link" href="{{ path('emotes', { channel: channel }) }}"><i class="fa fa-smile-o"></i> Emotes</a></li>
+						<li class="nav-item"><a class="nav-link" href="{{ path('users', { channel: channel }) }}"><i class="fa fa-users"></i> Chatters</a></li>
+					</ul>
+					{% endif %}
 				</div>
 			</div>
 		</nav>

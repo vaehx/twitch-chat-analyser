@@ -1,10 +1,10 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<p><a href="{{ path('index') }}"><i class="fa fa-long-arrow-left"></i> Back to overview</a></p>
+<p><a href="{{ path('channel', { channel: channel }) }}"><i class="fa fa-long-arrow-left"></i> Back to channel overview</a></p>
 
 {% embed 'period_picker.twig' %}
-	{% block action %}{{ path('emote', { emote: emote }) }}{% endblock %}
+	{% block action %}{{ path('emote', { channel: channel, emote: emote }) }}{% endblock %}
 {% endembed %}
 
 <h2>Emote '{{ emote }}'</h2>
@@ -64,7 +64,7 @@
 	{% for user in leaderboard %}
 		<tr>
 			<td align="right">{{ loop.index }}.</td>
-			<td><a href="{{ path('emote_user', { emote: emote, username: user.username }) }}">{{ user.username }}</a></td>
+			<td><a href="{{ path('emote_user', { channel: channel, emote: emote, username: user.username }) }}">{{ user.username }}</a></td>
 			<td>{{ user.total_occurrences }}</td>
 			<td>{{ user.percentage|number_format(2) }}%</td>
 		</tr>

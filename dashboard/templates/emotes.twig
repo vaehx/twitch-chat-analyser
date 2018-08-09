@@ -1,14 +1,14 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<p><a href="{{ path('index') }}"><i class="fa fa-long-arrow-left"></i> Back to overview</a></p>
+<p><a href="{{ path('channel', { channel: channel }) }}"><i class="fa fa-long-arrow-left"></i> Back to channel overview</a></p>
 
 <h2>Emote leaderboard</h2>
 
 <!--<p>
 	<b>Excluded chatters:</b>
 	{% for username in constant('Dashboard\\MainController::EXCLUDED_CHATTERS') %}
-		<a href="{{ path('user', { username: username }) }}">{{ username }}</a>{{ not loop.last ? ', ' }}
+		<a href="{{ path('user', { channel: channel, username: username }) }}">{{ username }}</a>{{ not loop.last ? ', ' }}
 	{% endfor %}
 </p>-->
 
@@ -51,7 +51,7 @@
 {% for emoteName, emoteStats in emotes %}
 	<tr>
 		<td align="right">{{ loop.index }}.</td>
-		<td><a href="{{ path('emote', { emote: emoteName }) }}">{{ emoteName }}</a></td>
+		<td><a href="{{ path('emote', { channel: channel, emote: emoteName }) }}">{{ emoteName }}</a></td>
 		<td>{{ emoteStats.type|emote_type_name }}</td>
 		<td>{{ emoteStats.real_occurrences }}</td>
 		<!--<td>{{ emoteStats.occurrences }}</td>-->

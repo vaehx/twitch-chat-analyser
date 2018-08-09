@@ -1,13 +1,13 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<p><a href="{{ path('emote', { emote: emote }) }}"><i class="fa fa-long-arrow-left"></i> Back to emote '{{ emote }}'</a></p>
+<p><a href="{{ path('emote', { channel: channel, emote: emote }) }}"><i class="fa fa-long-arrow-left"></i> Back to emote '{{ emote }}'</a></p>
 
 {% embed 'period_picker.twig' %}
-	{% block action %}{{ path('emote_user', { emote: emote, username: username }) }}{% endblock %}
+	{% block action %}{{ path('emote_user', { channel: channel, emote: emote, username: username }) }}{% endblock %}
 {% endembed %}
 
-<h2>Emote '<a href="{{ path('emote', { emote: emote }) }}">{{ emote }}</a>' by user '<a href="{{ path('user', {username: username}) }}">{{ username }}</a>'</h2>
+<h2>Emote '<a href="{{ path('emote', { channel: channel, emote: emote }) }}">{{ emote }}</a>' by user '<a href="{{ path('user', { channel: channel, username: username }) }}">{{ username }}</a>'</h2>
 
 <p>
 	<b>Shown time range:</b> last {{ (windowEnd - windowStart)|date_duration }}

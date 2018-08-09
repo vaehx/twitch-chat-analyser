@@ -1,12 +1,12 @@
 {% extends 'layout.twig' %}
 {% block content %}
 
-<p><a href="{{ path('index') }}"><i class="fa fa-long-arrow-left"></i> Back to overview</a></p>
+<p><a href="{{ path('channel', { channel: channel }) }}"><i class="fa fa-long-arrow-left"></i> Back to channel overview</a></p>
 
 <h2>User leaderboard</h2>
 
 <div class="pull-right mb-2">
-	<form action="{{ path('users') }}" method="GET" class="form-inline">
+	<form action="{{ path('users', { channel: channel }) }}" method="GET" class="form-inline">
 		<label for="max" class="mr-2">Shown ranks:</label>
 		<input type="number" name="max" style="width: 90px" class="form-control form-control-sm mr-2" min="1" step="1" value="{{ shownRanks }}" />
 		<button type="submit" class="btn btn-sm btn-primary">Go</button>
@@ -25,7 +25,7 @@
 	{% for user in users %}
 		<tr>
 			<td align="right">{{ user.rank ? user.rank ~ '.' }}</td>
-			<td><a href="{{ path('user', { username: user.username }) }}">{% if user.is_bot %}<i class="fa fa-cog"></i> {% endif %}{{ user.username }}</a></td>
+			<td><a href="{{ path('user', { channel: channel, username: user.username }) }}">{% if user.is_bot %}<i class="fa fa-cog"></i> {% endif %}{{ user.username }}</a></td>
 			<td>{{ user.total_messages }}</td>
 		</tr>
 	{% endfor %}
