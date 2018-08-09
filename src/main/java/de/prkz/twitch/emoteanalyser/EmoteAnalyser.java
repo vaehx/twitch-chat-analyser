@@ -3,15 +3,18 @@ package de.prkz.twitch.emoteanalyser;
 import de.prkz.twitch.emoteanalyser.channel.ChannelStatsAggregation;
 import de.prkz.twitch.emoteanalyser.emote.*;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
+import org.apache.flink.api.common.restartstrategy.RestartStrategies;
+import org.apache.flink.api.common.time.Time;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.Statement;
 
 public class EmoteAnalyser {
 
@@ -46,6 +49,9 @@ public class EmoteAnalyser {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
+		// No checkpointing necessary, as we can recover from database
+		env.setRestartStrategy(RestartStrategies.failureRateRestart(
+				5, org.apache.flink.api.common.time.Time.minutes(1), Time.seconds(5)));
 
 		// Twitch chat bot source
 		DataStream<Message> messages = env
@@ -56,12 +62,14 @@ public class EmoteAnalyser {
 
 
 		// Per-Channel statistics
-		ChannelStatsAggregation channelStatsAggregation = new ChannelStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL);
+		ChannelStatsAggregation channelStatsAggregation =
+				new ChannelStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
 		channelStatsAggregation.prepareTable(stmt);
 		channelStatsAggregation.aggregateAndExportFrom(messages);
 
 		// Per-User statistics
-		UserStatsAggregation userStatsAggregation = new UserStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL);
+		UserStatsAggregation userStatsAggregation =
+				new UserStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
 		userStatsAggregation.prepareTable(stmt);
 		userStatsAggregation.aggregateAndExportFrom(messages);
 
@@ -80,12 +88,14 @@ public class EmoteAnalyser {
 				.name("ExtractEmotes");
 
 		// Per-Emote statistics
-		EmoteStatsAggregation emoteStatsAggregation = new EmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL);
+		EmoteStatsAggregation emoteStatsAggregation =
+				new EmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
 		emoteStatsAggregation.prepareTable(stmt);
 		emoteStatsAggregation.aggregateAndExportFrom(emotes);
 
 		// Per-Emote per-User statistics
-		UserEmoteStatsAggregation userEmoteStatsAggregation = new UserEmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL);
+		UserEmoteStatsAggregation userEmoteStatsAggregation =
+				new UserEmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
 		userEmoteStatsAggregation.prepareTable(stmt);
 		userEmoteStatsAggregation.aggregateAndExportFrom(emotes);
 

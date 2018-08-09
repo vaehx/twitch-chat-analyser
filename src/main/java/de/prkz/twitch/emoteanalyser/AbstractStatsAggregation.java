@@ -28,11 +28,11 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 	private transient ValueState<STATS> statsState;
 	protected transient Connection conn;
 	private String jdbcUrl;
-	private long aggregationInterval;
+	private long aggregationIntervalMillis;
 
-	public AbstractStatsAggregation(String jdbcUrl, Time aggregationInterval) {
+	public AbstractStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
 		this.jdbcUrl = jdbcUrl;
-		this.aggregationInterval = aggregationInterval.toMilliseconds();
+		this.aggregationIntervalMillis = aggregationIntervalMillis;
 	}
 
 	@Override
@@ -82,7 +82,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
 		inputStream
 				.keyBy(createKeySelector())
-				.window(TumblingEventTimeWindows.of(Time.milliseconds(aggregationInterval)))
+				.window(TumblingEventTimeWindows.of(Time.milliseconds(aggregationIntervalMillis)))
 				.process(this)
 				.flatMap(new FlatMapFunction<STATS, OutputStatement>() {
 					@Override

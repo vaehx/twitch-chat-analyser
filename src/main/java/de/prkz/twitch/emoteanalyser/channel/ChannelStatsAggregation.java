@@ -6,7 +6,6 @@ import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.streaming.api.windowing.time.Time;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -16,8 +15,8 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
 	private static final String TABLE_NAME = "channel_stats";
 
-	public ChannelStatsAggregation(String jdbcUrl, Time aggregationInterval) {
-		super(jdbcUrl, aggregationInterval);
+	public ChannelStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
+		super(jdbcUrl, aggregationIntervalMillis);
 	}
 
 	@Override

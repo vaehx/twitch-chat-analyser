@@ -6,8 +6,6 @@ import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.streaming.api.windowing.time.Time;
-import org.apache.flink.types.Row;
 
 import java.sql.*;
 
@@ -17,8 +15,8 @@ public class UserEmoteStatsAggregation
 
 	private static final String TABLE_NAME = "user_emote_stats";
 
-	public UserEmoteStatsAggregation(String jdbcUrl, Time aggregationInterval) {
-		super(jdbcUrl, aggregationInterval);
+	public UserEmoteStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
+		super(jdbcUrl, aggregationIntervalMillis);
 	}
 
 	@Override
