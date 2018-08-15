@@ -31,9 +31,6 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 		emotes = new HashSet<>();
 		fetchEmotes();
 		lastEmoteFetch = System.currentTimeMillis();
-
-		for (String emote : emotes)
-			LOG.info(emote);
 	}
 
 	@Override
