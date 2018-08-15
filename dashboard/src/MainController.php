@@ -354,8 +354,8 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/channel/{channel}/user/{username}', function(Request $request, $channel, $username) use($app, $db) {
 			// Determine visualized window bounds
-			$shownPeriodValue = $request->query->get('shownPeriodValue', 0);
-			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
+			$shownPeriodValue = $request->query->get('shownPeriodValue', 1);
+			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'months');
 			
 			$windowEndTime = self::getCurrentTimestamp();
 			if ($shownPeriodValue <= 0)
