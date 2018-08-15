@@ -13,6 +13,7 @@ services:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     links:
       - db
+    restart: always
   
   flink-taskmanager:
     image: flink
@@ -29,6 +30,7 @@ services:
     links:
       - flink-jobmanager
       - db
+    restart: always
 
   db:
     image: postgres:alpine
@@ -39,6 +41,7 @@ services:
       - ./db-storage:/var/lib/postgresql/data
     expose:
       - "5432"
+    restart: always
 
   dashboard:
     image: dashboard
@@ -49,3 +52,4 @@ services:
       - ./dashboard:/var/www/html
     links:
       - db
+    restart: always
