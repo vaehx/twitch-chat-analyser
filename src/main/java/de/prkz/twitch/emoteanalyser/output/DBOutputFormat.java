@@ -52,6 +52,7 @@ public class DBOutputFormat extends RichOutputFormat<OutputStatement> {
 	private void flush() throws IOException {
 		try {
 			stmt.executeBatch();
+			inCurrentBatch = 0;
 		}
 		catch (SQLException ex) {
 			throw new IOException("Could not execute batch", ex);
