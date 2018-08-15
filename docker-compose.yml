@@ -50,6 +50,7 @@ services:
       - "8082:80"
     volumes:
       - ./dashboard:/var/www/html
+      - ./dashboard/php.ini:/usr/local/etc/php/php-dashboard.ini:ro
     links:
       - db
     restart: always
