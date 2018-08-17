@@ -509,12 +509,12 @@ class MainController implements ControllerProviderInterface
 		{
 			if ($t <= $first['timestamp'])
 			{
-				// Not enough data before the start of the series
+				// Not enough data before the start of the series - clamp into time range
 				$result[] = ['timestamp' => $t, $fieldName => $first[$fieldName]];
 			}
 			else if ($t >= $last['timestamp'])
 			{
-				// Not enough data after the end of the series
+				// Not enough data after the end of the series - clamp into time range
 				$result[] = ['timestamp' => $t, $fieldName => $last[$fieldName]];
 			}
 			else
