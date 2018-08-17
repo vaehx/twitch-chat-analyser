@@ -42,6 +42,7 @@ class MainController implements ControllerProviderInterface
 				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
 			$channels = $stmt->fetchAll();
 
+			// Get total message stats for each channel
 			foreach ($channels as $k => &$channel)
 			{
 				$channelName = $channel['name'];
@@ -491,8 +492,8 @@ class MainController implements ControllerProviderInterface
 		$first = reset($series);
 		$last = end($series);
 
-		$startTime = $first['timestamp'];
-		$endTime = $last['timestamp'];
+		$startTime = $startTime ?: $first['timestamp'];
+		$endTime = $endTime ?: $last['timestamp'];
 
 		if ($endTime - $startTime == 0)
 		{
