@@ -67,11 +67,15 @@ class MainController implements ControllerProviderInterface
 		 * Emote statistics overview for a channel
 		 */
 		$route->get('/channel/{channel}', function(Request $request, $channel) use($app, $db) {
+			$timer = new Timer();
+			$timer->start();
+
 			// Get channel info
 			$stmt = $db->query("SELECT * FROM channel_stats WHERE channel='$channel' AND timestamp=0");
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "No data found for that channel");
 			$channelInfo = $stmt->fetch();
+			$timer->mark('get_channel_info');
 			
 			// Determine visualized window bounds
 			$shownPeriodValue = $request->query->get('shownPeriodValue', 24);
@@ -81,6 +85,7 @@ class MainController implements ControllerProviderInterface
 
 			$windowEndTime = self::getCurrentTimestamp();
 			$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
+			$timer->mark();
 
 			// Get emote statistics
 			$emoteStats = [];
@@ -110,12 +115,14 @@ class MainController implements ControllerProviderInterface
 				if ($firstOccurrences < $minEmoteOccurrences)
 					$minEmoteOccurrences = $firstOccurrences;
 			}
+			$timer->mark('get_emote_statistics');
 
 			// Get total message count
 			$stmt = $db->query("SELECT timestamp, total_messages FROM channel_stats"
 							. " WHERE channel='$channel' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
 							. " ORDER BY timestamp ASC");
 			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'total_messages', self::DEFAULT_SERIES_RESOLUTION, $windowStartTime, $windowEndTime);
+			$timer->mark('get_total_message_count');
 
 			// Chatters active in selected time window
 			$stmt = $db->query("SELECT channel, username, SUM(messages) AS messages FROM ".self::USER_STATS_TABLE
@@ -127,6 +134,7 @@ class MainController implements ControllerProviderInterface
 			$recentChattersMore = $stmt->rowCount();
 			for ($i = 0; $i < $shownRecentChatters && ($row = $stmt->fetch()); ++$i)
 				$recentChatters[] = $row;
+			$timer->mark('get_recent_chatters');
 
 			// Emotes active in selected time window
 			$stmt = $db->query("SELECT channel, emote, SUM(occurrences) AS occurrences FROM ".self::EMOTE_STATS_TABLE
@@ -138,9 +146,11 @@ class MainController implements ControllerProviderInterface
 			$recentEmotesMore = $stmt->rowCount();
 			for ($i = 0; $i < $shownRecentEmotes && ($row = $stmt->fetch()); ++$i)
 				$recentEmotes[] = $row;
+			$timer->mark('get_recent_emotes');
 
 			return $app['twig']->render('channel.twig', [
 				'channel' => $channel,
+				'timer' => $timer,
 				'shownPeriodValue' => $shownPeriodValue,
 				'shownPeriodUnit' => $shownPeriodUnit,
 				'channelStats' => $channelStats,
