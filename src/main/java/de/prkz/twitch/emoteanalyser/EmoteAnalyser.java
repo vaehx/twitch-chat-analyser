@@ -20,7 +20,7 @@ public class EmoteAnalyser {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
 
-	private static final Time AGGREGATION_INTERVAL = Time.minutes(1);
+	private static final Time AGGREGATION_INTERVAL = Time.minutes(2);
 
 	public static void main(String[] args) throws Exception {
 
