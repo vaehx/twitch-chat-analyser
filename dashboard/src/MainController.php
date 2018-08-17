@@ -542,7 +542,7 @@ class MainController implements ControllerProviderInterface
 				$k = ($t - $before['timestamp']) / ($after['timestamp'] - $before['timestamp']);
 				$result[] = [
 					'timestamp' => $t,
-					$fieldName => $before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName])
+					$fieldName => round($before[$fieldName] + $k * ($after[$fieldName] - $before[$fieldName]))
 				];
 			}
 			
