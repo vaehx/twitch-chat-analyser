@@ -53,8 +53,8 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 		stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
 				"channel VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"total_messages BIGINT NOT NULL," +
-				"messages INT NOT NULL," +
+				"total_messages INT NOT NULL," +
+				"messages SMALLINT NOT NULL," +
 				"PRIMARY KEY(channel, timestamp))");
 	}
 

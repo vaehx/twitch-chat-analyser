@@ -72,8 +72,8 @@ public class UserEmoteStatsAggregation
 				"emote VARCHAR(64) NOT NULL," +
 				"username VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"total_occurrences BIGINT NOT NULL DEFAULT 0," +
-				"occurrences INT NOT NULL DEFAULT 0," +
+				"total_occurrences INT NOT NULL DEFAULT 0," +
+				"occurrences SMALLINT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(channel, emote, username, timestamp))");
 	}
 

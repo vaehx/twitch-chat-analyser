@@ -70,8 +70,8 @@ public class UserStatsAggregation
 				"channel VARCHAR(32) NOT NULL," +
 				"username VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
-				"total_messages BIGINT NOT NULL DEFAULT 0," +
-				"messages INT NOT NULL DEFAULT 0," +
+				"total_messages INT NOT NULL DEFAULT 0," +
+				"messages SMALLINT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(channel, username, timestamp))");
 	}
 
