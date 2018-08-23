@@ -9,12 +9,14 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.util.Properties;
 
 public class EmoteAnalyser {
 
@@ -31,14 +33,12 @@ public class EmoteAnalyser {
 
 		// Parse arguments
 		if (args.length < 2) {
-			System.out.println("Arguments: <jdbcUrl> <channels...>");
+			System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server>");
 			System.exit(1);
 		}
 
 		String jdbcUrl = args[0];
-		String[] channels = new String[args.length - 1];
-		for (int i = 1; i < args.length; ++i)
-			channels[i - 1] = "#" + args[i];
+		String kafkaBootstrapServer = args[1];
 
 		// Prepare database
 		Connection conn = DriverManager.getConnection(jdbcUrl);
@@ -53,13 +53,18 @@ public class EmoteAnalyser {
 		env.setRestartStrategy(RestartStrategies.failureRateRestart(
 				5, org.apache.flink.api.common.time.Time.minutes(1), Time.seconds(5)));
 
-		// Twitch chat bot source
-		DataStream<Message> messages = env
-				.addSource(new TwitchSource(channels))
-				.setParallelism(1) // only one bot!
-				.name("TwitchSource")
-				.assignTimestampsAndWatermarks(new Message.TimestampExtractor());
+		// Pull messages from Kafka
+		Properties kafkaProps = new Properties();
+		kafkaProps.setProperty("bootstrap.servers", kafkaBootstrapServer);
+		kafkaProps.setProperty("group.id", "twitch_chat_analyzer");
+		kafkaProps.setProperty("auto.offset.reset", "earliest");
 
+		FlinkKafkaConsumer011<Message> consumer = new FlinkKafkaConsumer011<>(
+				"TwitchMessages", new MessageDeserializationSchema(), kafkaProps);
+		DataStream<Message> messages = env
+				.addSource(consumer)
+				.name("KafkaSource")
+				.assignTimestampsAndWatermarks(new Message.TimestampExtractor());
 
 		// Per-Channel statistics
 		ChannelStatsAggregation channelStatsAggregation =

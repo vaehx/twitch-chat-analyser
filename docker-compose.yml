@@ -1,6 +1,54 @@
 version: "2.2"
-
 services:
+  #----------------------------------------------------------------------------
+  # Chat Bot
+  #----------------------------------------------------------------------------
+  bot:
+    image: openjdk:8-alpine
+    command: java -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot kafka:9092 moonmoon_ow
+    container_name: tca_bot
+    volumes:
+      - ./target/emote-analyzer-1.0-SNAPSHOT.jar:/analyzer.jar:ro
+    links:
+      - kafka
+    restart: always
+
+  #----------------------------------------------------------------------------
+  # Zookeeper
+  #----------------------------------------------------------------------------
+  zookeeper:
+    image: zookeeper
+    container_name: tca_zookeeper
+    expose:
+      - "2181"
+    restart: always
+  
+  #----------------------------------------------------------------------------
+  # Kafka
+  #----------------------------------------------------------------------------
+  kafka:
+    build: ./kafka
+    entrypoint: wait-for.sh --wait-for zookeeper:2181 --delay 5s
+    command: start-kafka.sh
+    container_name: tca_kafka
+    volumes:
+      - ./kafka-storage:/kafka
+    expose:
+      - "9092"
+    environment:
+      - KAFKA_ADVERTISED_HOST_NAME=kafka
+      - KAFKA_ADVERTISED_PORT=9092
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_DELETE_TOPIC_ENABLE=true
+      - KAFKA_NUM_PARTITIONS=1
+    links:
+      - zookeeper
+    restart: always
+  
+  #----------------------------------------------------------------------------
+  # Flink
+  #----------------------------------------------------------------------------
   flink-jobmanager:
     image: flink
     command: jobmanager
@@ -30,8 +78,13 @@ services:
     links:
       - flink-jobmanager
       - db
+      - zookeeper
+      - kafka
     restart: always
 
+  #----------------------------------------------------------------------------
+  # Postgres
+  #----------------------------------------------------------------------------
   db:
     image: postgres:alpine
     environment:
@@ -43,6 +96,9 @@ services:
       - "5432"
     restart: always
 
+  #----------------------------------------------------------------------------
+  # Dashboard / Frontend
+  #----------------------------------------------------------------------------
   dashboard:
     image: dashboard
     build: ./dashboard
