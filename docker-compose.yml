@@ -89,11 +89,13 @@ services:
   #----------------------------------------------------------------------------
   db:
     image: postgres:alpine
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: twitch
     volumes:
       - ./db-storage:/var/lib/postgresql/data
+      - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
     expose:
       - "5432"
     restart: always
