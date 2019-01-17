@@ -22,8 +22,6 @@ public class EmoteAnalyser {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
 
-	private static final Time AGGREGATION_INTERVAL = Time.minutes(2);
-
 	public static void main(String[] args) throws Exception {
 
 		LOG.debug("test-debug");
@@ -32,13 +30,14 @@ public class EmoteAnalyser {
 
 
 		// Parse arguments
-		if (args.length < 2) {
-			System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server>");
+		if (args.length < 3) {
+			System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <aggregation-interval-millis>");
 			System.exit(1);
 		}
 
 		String jdbcUrl = args[0];
 		String kafkaBootstrapServer = args[1];
+		Long aggregationIntervalMs = Long.parseLong(args[2]);
 
 		// Prepare database
 		Connection conn = DriverManager.getConnection(jdbcUrl);
@@ -68,13 +67,13 @@ public class EmoteAnalyser {
 
 		// Per-Channel statistics
 		ChannelStatsAggregation channelStatsAggregation =
-				new ChannelStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
+				new ChannelStatsAggregation(jdbcUrl, aggregationIntervalMs);
 		channelStatsAggregation.prepareTable(stmt);
 		channelStatsAggregation.aggregateAndExportFrom(messages);
 
 		// Per-User statistics
 		UserStatsAggregation userStatsAggregation =
-				new UserStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
+				new UserStatsAggregation(jdbcUrl, aggregationIntervalMs);
 		userStatsAggregation.prepareTable(stmt);
 		userStatsAggregation.aggregateAndExportFrom(messages);
 
@@ -94,13 +93,13 @@ public class EmoteAnalyser {
 
 		// Per-Emote statistics
 		EmoteStatsAggregation emoteStatsAggregation =
-				new EmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
+				new EmoteStatsAggregation(jdbcUrl, aggregationIntervalMs);
 		emoteStatsAggregation.prepareTable(stmt);
 		emoteStatsAggregation.aggregateAndExportFrom(emotes);
 
 		// Per-Emote per-User statistics
 		UserEmoteStatsAggregation userEmoteStatsAggregation =
-				new UserEmoteStatsAggregation(jdbcUrl, AGGREGATION_INTERVAL.toMilliseconds());
+				new UserEmoteStatsAggregation(jdbcUrl, aggregationIntervalMs);
 		userEmoteStatsAggregation.prepareTable(stmt);
 		userEmoteStatsAggregation.aggregateAndExportFrom(emotes);
 
