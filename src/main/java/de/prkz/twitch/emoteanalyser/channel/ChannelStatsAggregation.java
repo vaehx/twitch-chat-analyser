@@ -26,14 +26,19 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
 		// Load current count from database, if it exists
 		Statement stmt = conn.createStatement();
-		ResultSet result = stmt.executeQuery("SELECT total_messages FROM " + TABLE_NAME + " " +
+		ResultSet result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
 				"WHERE channel='" + channel + "' " +
 				"ORDER BY timestamp DESC LIMIT 1");
 
-		if (result.next())
+		if (result.next()) {
 			stats.totalMessageCount = result.getLong(1);
-		else
+			stats.messageCount = result.getInt(2);
+			stats.timestamp = result.getLong(3);
+		} else {
 			stats.totalMessageCount = 0;
+			stats.messageCount = 0;
+			stats.timestamp = 0;
+		}
 
 		stmt.close();
 		return stats;
@@ -62,7 +67,9 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 	protected Iterable<OutputStatement> prepareStatsForOutput(ChannelStats stats) {
 		return OutputStatement.buildBatch()
 				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ")")
+						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
+						"ON CONFLICT(channel, timestamp) DO UPDATE " +
+							"SET total_messages = excluded.total_messages, messages = excluded.messages")
 				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
 						"VALUES(0, '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
 						"ON CONFLICT(channel, timestamp) DO UPDATE " +

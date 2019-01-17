@@ -43,14 +43,19 @@ public class UserEmoteStatsAggregation
 
 		// Load current count from database, if it exists
 		Statement stmt = conn.createStatement();
-		ResultSet result = stmt.executeQuery("SELECT total_occurrences FROM " + TABLE_NAME + " WHERE " +
+		ResultSet result = stmt.executeQuery("SELECT total_occurrences, occurrences, timestamp FROM " + TABLE_NAME + " WHERE " +
 				"channel='" + stats.channel + "' AND emote='" + stats.emote + "' AND username='" + stats.username + "' " +
 				"ORDER BY timestamp DESC LIMIT 1");
 
-		if (result.next())
+		if (result.next()) {
 			stats.totalOccurrences = result.getLong(1);
-		else
+			stats.occurrences = result.getInt(2);
+			stats.timestamp = result.getLong(3);
+		} else {
 			stats.totalOccurrences = 0;
+			stats.occurrences = 0;
+			stats.timestamp = 0;
+		}
 
 		stmt.close();
 		return stats;
@@ -81,7 +86,9 @@ public class UserEmoteStatsAggregation
 	protected Iterable<OutputStatement> prepareStatsForOutput(UserEmoteStats stats) {
 		return OutputStatement.buildBatch()
 				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.emote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ")")
+						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.emote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
+						"ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +
+							"SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
 				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
 						"VALUES(0, '" + stats.channel + "', '" + stats.emote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
 						"ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +

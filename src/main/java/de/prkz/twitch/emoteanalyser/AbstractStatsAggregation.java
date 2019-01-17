@@ -14,6 +14,8 @@ import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindo
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -22,6 +24,8 @@ import java.sql.Statement;
 
 public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends AbstractStats>
 		extends ProcessWindowFunction<INPUT, STATS, KEY, TimeWindow> {
+
+	private static final Logger LOG = LoggerFactory.getLogger(AbstractStatsAggregation.class);
 
 	protected static final long LATEST_TOTAL_TIMESTAMP = 0;
 
@@ -53,9 +57,16 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 		if (stats == null)
 			stats = createNewStatsForKey(key);
 
+		// Ignore late data (but include data for latest/current window)
+		TimeWindow window = context.window();
+		if (window.getEnd() < stats.timestamp) {
+			LOG.warn("Ignoring late window: " + window.getStart() + "-" + window.getEnd());
+			return;
+		}
+
 		processWindowElements(stats, elements);
 
-		stats.timestamp = context.window().getEnd();
+		stats.timestamp = window.getEnd();
 		collector.collect(stats);
 		statsState.update(stats);
 	}
@@ -97,6 +108,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
 	protected abstract KeySelector<INPUT, KEY> createKeySelector();
 
+	/** Should at least set latest timestamp and total count */
 	protected abstract STATS createNewStatsForKey(KEY key) throws SQLException;
 
 	protected abstract void processWindowElements(STATS stats, Iterable<INPUT> elements);
