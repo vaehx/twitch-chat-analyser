@@ -5,6 +5,8 @@ import de.prkz.twitch.emoteanalyser.emote.*;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.runtime.state.StateBackend;
+import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -21,6 +23,8 @@ import java.util.Properties;
 public class EmoteAnalyser {
 
 	private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
+
+	private static final long CHECKPOINT_INTERVAL_MS = 60000;
 
 	public static void main(String[] args) throws Exception {
 
@@ -48,7 +52,10 @@ public class EmoteAnalyser {
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 		env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
-		// No checkpointing necessary, as we can recover from database
+		// Synchronous checkpoints to local file system
+		env.enableCheckpointing(CHECKPOINT_INTERVAL_MS);
+		env.setStateBackend((StateBackend)new FsStateBackend("file:///data/checkpoints", false));
+
 		env.setRestartStrategy(RestartStrategies.failureRateRestart(
 				5, org.apache.flink.api.common.time.Time.minutes(1), Time.seconds(5)));
 
