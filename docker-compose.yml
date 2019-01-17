@@ -52,7 +52,7 @@ services:
   # Flink
   #----------------------------------------------------------------------------
   flink-jobmanager:
-    image: flink:1.6.0
+    image: flink:1.6.3
     command: jobmanager
     container_name: flink-jobmanager
     expose:
@@ -68,7 +68,7 @@ services:
     restart: always
   
   flink-taskmanager:
-    image: flink:1.6.0
+    image: flink:1.6.3
     command: taskmanager
     container_name: flink-taskmanager    
     ports:
