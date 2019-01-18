@@ -1,6 +1,6 @@
 #!/bin/bash
 
-docker cp ./target/emote-analyzer-1.0-SNAPSHOT.jar flink-jobmanager:/analyser.jar
+docker cp ./target/emote-analyzer-1.0-SNAPSHOT.jar tca_flink-jobmanager:/analyser.jar
 
 docker exec -u root tca_flink-jobmanager mkdir -p /data/checkpoints
 docker exec -u root tca_flink-jobmanager chown flink:flink /data/checkpoints
