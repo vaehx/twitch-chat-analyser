@@ -19,6 +19,10 @@ class ApiController implements ControllerProviderInterface
 		$route = $app['controllers_factory'];
 		$db = $app['db'];
 
+		$route->get('/', function() use($app) {
+			return "";
+		})->bind('api_index');
+
 		/**
 		 * Emote statistics
 		 */
