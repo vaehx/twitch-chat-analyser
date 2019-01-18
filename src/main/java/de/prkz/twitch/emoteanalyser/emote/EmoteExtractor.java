@@ -70,6 +70,12 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 		}
 	}
 
+	/**
+	 * Queries the twitch api for subscriber emotes provided by the given channel
+	 *
+	 * @param channel the channel to query
+	 * @return a list of emote codes/regexes for available (possibly disabled) emotes
+	 */
 	private static List<String> fetchChannelEmotes(String channel) throws IOException {
 		URL url = new URL("https://api.twitch.tv/api/channels/" + channel + "/product" +
 				"?client_id=" + TWITCH_API_CLIENT_ID);
@@ -78,8 +84,10 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 		con.setRequestProperty("Content-Type", "application/json");
 
 		int status = con.getResponseCode();
-		if (status != 200)
+		if (status != 200) {
+			LOG.error("Could not fetch emotes for channel '{}' from twitch api: {}", channel, con.getResponseMessage());
 			return null;
+		}
 
 		BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
 		String line;
@@ -92,8 +100,11 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
 		JSONObject responseObj = new JSONObject(response.toString());
 		JSONArray emoticons = responseObj.getJSONArray("emoticons");
-		if (emoticons == null)
+		if (emoticons == null) {
+			LOG.error("Could not fetch emotes for channel '" + channel + "' from twitch api: " +
+					"Response does not include emoticons.");
 			return null;
+		}
 
 		List<String> emotes = new ArrayList<>();
 		for (int i = 0; i < emoticons.length(); ++i) {
@@ -102,9 +113,18 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 			emotes.add(emote.getString("regex"));
 		}
 
+		LOG.info("Fetched " + emotes.size() + " emotes for channel '" + channel + "' from twitch api");
+
 		return emotes;
 	}
 
+	/**
+	 * First, refreshes/completes the current emotes list in the database by re-fetching channel
+	 * emotes from twitch api for all known channels (as stored in <code>knownChannels</code>
+	 * and/or known channels in emotes table).
+	 *
+	 * Then, the whole emote list from database is loaded as the new set of emotes to match against.
+	 */
 	private void reloadEmotes() throws Exception {
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
@@ -139,7 +159,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 			emotes.add(result.getString(1));
 		}
 
-		LOG.info("Updated emote table. Now using " + emotes.size() + " emotes.");
+		LOG.info("Updated emote table. Now using {} emotes in {} known channels", emotes.size(), knownChannels.size());
 
 		conn.close();
 	}
