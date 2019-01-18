@@ -54,7 +54,7 @@ services:
   flink-jobmanager:
     image: flink:1.6.3
     command: jobmanager
-    container_name: flink-jobmanager
+    container_name: tca_flink-jobmanager
     expose:
       - "6123"
     ports:
@@ -70,7 +70,7 @@ services:
   flink-taskmanager:
     image: flink:1.6.3
     command: taskmanager
-    container_name: flink-taskmanager    
+    container_name: tca_flink-taskmanager
     ports:
       - "6121"
       - "6122"
@@ -93,6 +93,7 @@ services:
   db:
     image: postgres:alpine
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    container_name: tca_db
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: twitch
@@ -109,6 +110,7 @@ services:
   dashboard:
     image: dashboard
     build: ./dashboard
+    container_name: tca_dashboard
     ports:
       - "8082:80"
     volumes:
