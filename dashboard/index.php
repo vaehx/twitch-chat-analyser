@@ -8,4 +8,5 @@ error_reporting(E_ALL);
 $app = new Dashboard\Dashboard();
 $app['debug'] = true;
 $app->mount('', new Dashboard\MainController());
+$app->mount('/api', new Dashboard\ApiController());
 $app->run();
