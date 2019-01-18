@@ -87,7 +87,7 @@ public class EmoteAnalyser {
 
 		// Extract emotes from messages
 		EmoteExtractor emoteExtractor = new EmoteExtractor(jdbcUrl);
-		emoteExtractor.prepareTable(stmt);
+		emoteExtractor.prepareTables(stmt);
 		DataStream<Emote> emotes = messages
 				.flatMap(emoteExtractor)
 				.assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
