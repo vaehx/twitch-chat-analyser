@@ -50,6 +50,7 @@ public class BoundedLatencyEventTimeTrigger extends Trigger<Object, TimeWindow> 
         ValueState<Long> timeoutTime = ctx.getPartitionedState(timeoutTimeDescriptor);
         if (timeoutTime.value() == time) {
             // early-fire pane, next timeout timer will be registered with next element
+            timeoutTime.clear();
             return TriggerResult.FIRE;
         } else {
             return TriggerResult.CONTINUE;
