@@ -67,7 +67,7 @@ services:
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     volumes:
-      - ./flink-jobmanager-data:/data
+      - ./flink-data:/data
     links:
       - db
     restart: always
@@ -84,7 +84,9 @@ services:
     volumes:
       - ./flink-conf/log4j-console.properties:/opt/flink/conf/log4j-console.properties
       - ./flink-conf/logback-console.xml:/opt/flink/conf/logback-console.properties
-      - ./flink-taskmanager-data:/data
+      - ./flink-conf/flink-conf.yaml:/opt/flink/conf/flink-conf.yaml
+      # Same directory, so JM can delete TM checkpoint data
+      - ./flink-data:/data
     links:
       - flink-jobmanager
       - db

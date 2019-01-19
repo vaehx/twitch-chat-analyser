@@ -11,11 +11,9 @@ DB_BATCH_SIZE=1 # rows, batch-size for channel_stats is 1/5th of that or at leas
 
 docker cp ./target/emote-analyzer-1.0-SNAPSHOT.jar tca_flink-jobmanager:/analyser.jar
 
+# Same directory mounted into jm and tm
 docker exec -u root tca_flink-jobmanager mkdir -p /data/checkpoints
 docker exec -u root tca_flink-jobmanager chown flink:flink /data/checkpoints
-
-docker exec -u root tca_flink-taskmanager mkdir -p /data/checkpoints
-docker exec -u root tca_flink-taskmanager chown flink:flink /data/checkpoints
 
 docker exec -ti tca_flink-jobmanager flink run -p $PARALLELISM -c de.prkz.twitch.emoteanalyser.EmoteAnalyser /analyser.jar \
 	$JDBC_URL \
