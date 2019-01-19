@@ -10,21 +10,30 @@
 
 4. Submit app with `submit.sh`
 
-5. After the first start, no emotes will be tracked. You can add them to the `emote` table in the Postgres DB. The app will reload this emote list every 60 seconds:
+5. The app will periodically fetch subscriber emotes for all channels that at least one message was received for.
 
-	1. Determine container id of the postgres db container (`docker ps`)
+	* To add channels, update the `bot` section in `docker-compose.yml`.
 
-	2. Start a shell in this container: `docker exec -ti <db-container-id> bash`
+	* To manually add emotes (e.g. non-subscriber emotes):
 
-	3. Start a postgre shell: `psql -Upostgres -dtwitch`
-
-	4. Insert your emotes:
-	
-		```sql
-		INSERT INTO emotes(emote) VALUES ('Kappa'), ('PogChamp'), ...;
+		```
+		$ docker exec -ti tca_db psql -Upostgres -dtwitch
+		twitch=# INSERT INTO channels(name) VALUES ('Kappa'), ('PogChamp'), ...;
 		```
 
 The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
+
+
+## Processing a large batch of messages
+
+To process historic messages you may want to load a large batch of messages into Kafka.
+Since the current configuration is tuned for latency, processing of this batch may be slow.
+
+To improve the performance of the "batch" processing, alter the configuration in `submit.sh` to your needs:
+	
+	* Increase database output batch size
+	* Choose a longer trigger interval
+
 
 ## Troubleshooting
 
