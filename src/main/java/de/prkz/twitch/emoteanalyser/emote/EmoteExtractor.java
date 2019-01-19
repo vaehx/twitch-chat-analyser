@@ -126,6 +126,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 	 * Then, the whole emote list from database is loaded as the new set of emotes to match against.
 	 */
 	private void reloadEmotes() throws Exception {
+		Class.forName(org.postgresql.Driver.class.getCanonicalName());
 		Connection conn = DriverManager.getConnection(jdbcUrl);
 		Statement stmt = conn.createStatement();
 

@@ -15,8 +15,11 @@ public class EmoteStatsAggregation
 
 	private static final String TABLE_NAME = "emote_stats";
 
-	public EmoteStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
-		super(jdbcUrl, aggregationIntervalMillis);
+	public EmoteStatsAggregation(String jdbcUrl,
+								 int dbBatchInterval,
+								 long aggregationIntervalMillis,
+								 long triggerIntervalMillis) {
+		super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
 	}
 
 	@Override
@@ -76,7 +79,7 @@ public class EmoteStatsAggregation
 				"emote VARCHAR(64) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
 				"total_occurrences INT NOT NULL DEFAULT 0," +
-				"occurrences SMALLINT NOT NULL DEFAULT 0," +
+				"occurrences INT NOT NULL DEFAULT 0," +
 				"PRIMARY KEY(channel, emote, timestamp))");
 	}
 

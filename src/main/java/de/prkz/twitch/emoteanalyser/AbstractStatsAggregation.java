@@ -12,6 +12,8 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.windowing.ProcessWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingEventTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
+import org.apache.flink.streaming.api.windowing.triggers.ContinuousProcessingTimeTrigger;
+import org.apache.flink.streaming.api.windowing.triggers.PurgingTrigger;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
@@ -32,11 +34,18 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 	private transient ValueState<STATS> statsState;
 	protected transient Connection conn;
 	private String jdbcUrl;
+	private int dbBatchInterval;
 	private long aggregationIntervalMillis;
+	private long triggerIntervalMillis;
 
-	public AbstractStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
+	public AbstractStatsAggregation(String jdbcUrl,
+									int dbBatchInterval,
+									long aggregationIntervalMillis,
+									long triggerIntervalMillis) {
 		this.jdbcUrl = jdbcUrl;
+		this.dbBatchInterval = dbBatchInterval;
 		this.aggregationIntervalMillis = aggregationIntervalMillis;
+		this.triggerIntervalMillis = triggerIntervalMillis;
 	}
 
 	@Override
@@ -58,15 +67,24 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 			stats = createNewStatsForKey(key);
 
 		// Ignore late data (but include data for latest/current window)
+		// This is to avoid non-monotonous
 		TimeWindow window = context.window();
 		if (window.getEnd() < stats.timestamp) {
-			LOG.warn("Ignoring late window: " + window.getStart() + "-" + window.getEnd());
+			int n = 0;
+			for (INPUT ignored : elements)
+				n++;
+
+			LOG.warn("Ignoring " + n + " occurrences in late window: " + window.getStart() + "-" + window.getEnd() + " " +
+					"(current window end: " + stats.timestamp + ", key: " + key.toString() + ")");
 			return;
 		}
 
 		processWindowElements(stats, elements);
 
 		stats.timestamp = window.getEnd();
+
+		//LOG.info("Processed window " + stats.timestamp + " of key '" + key.toString() + "'");
+
 		collector.collect(stats);
 		statsState.update(stats);
 	}
@@ -84,7 +102,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 					.buildDBOutputFormat()
 					.withDriverClass(org.postgresql.Driver.class.getCanonicalName())
 					.withJdbcUrl(jdbcUrl)
-					.withBatchSize(1)
+					.withBatchSize(dbBatchInterval)
 					.finish();
 		}
 		catch (Exception ex) {
@@ -94,6 +112,8 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 		inputStream
 				.keyBy(createKeySelector())
 				.window(TumblingEventTimeWindows.of(Time.milliseconds(aggregationIntervalMillis)))
+				// Using a continuous purging trigger requires the event-time watermark to progress properly
+				.trigger(PurgingTrigger.of(BoundedLatencyEventTimeTrigger.of(Time.milliseconds(triggerIntervalMillis))))
 				.process(this)
 				.flatMap(new FlatMapFunction<STATS, OutputStatement>() {
 					@Override

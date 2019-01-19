@@ -15,8 +15,11 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
 	private static final String TABLE_NAME = "channel_stats";
 
-	public ChannelStatsAggregation(String jdbcUrl, long aggregationIntervalMillis) {
-		super(jdbcUrl, aggregationIntervalMillis);
+	public ChannelStatsAggregation(String jdbcUrl,
+								   int dbBatchInterval,
+								   long aggregationIntervalMillis,
+								   long triggerIntervalMillis) {
+		super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
 	}
 
 	@Override
@@ -59,7 +62,7 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 				"channel VARCHAR(32) NOT NULL," +
 				"timestamp BIGINT NOT NULL," +
 				"total_messages INT NOT NULL," +
-				"messages SMALLINT NOT NULL," +
+				"messages INT NOT NULL," +
 				"PRIMARY KEY(channel, timestamp))");
 	}
 
