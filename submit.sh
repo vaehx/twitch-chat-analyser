@@ -4,9 +4,9 @@ PARALLELISM=1
 JDBC_URL="jdbc:postgresql://db:5432/twitch?user=postgres&password=password" 
 KAFKA_BOOTSTRAP_SERVER="kafka:9092"
 AGGREGATION_INTERVAL_MS=900000 # 15 min, event-time
-TRIGGER_INTERVAL_MS=60000 # 1 min, processing-time
+TRIGGER_INTERVAL_MS=5000 # 5 sec, processing-time
 MAX_OUT_OF_ORDERNESS_MS=60000 # 1 min, event-time
-DB_BATCH_SIZE=500 # rows, batch-size for channel_stats is 1/5th of that or at least 1
+DB_BATCH_SIZE=1 # rows, batch-size for channel_stats is 1/5th of that or at least 1
 
 
 docker cp ./target/emote-analyzer-1.0-SNAPSHOT.jar tca_flink-jobmanager:/analyser.jar
