@@ -71,12 +71,13 @@ class MainController implements ControllerProviderInterface
 			$timer->start();
 
 			// Get channel info
-			$stmt = $db->query("SELECT * FROM channel_stats WHERE channel='$channel' AND timestamp=0");
+			$stmt = $db->prepare("SELECT * FROM channel_stats WHERE channel = :channel AND timestamp = 0");
+			$stmt->execute(array(':channel' => $channel));
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "No data found for that channel");
 			$channelInfo = $stmt->fetch();
 			$timer->mark('get_channel_info');
-			
+
 			// Determine visualized window bounds
 			$shownPeriodValue = $request->query->get('shownPeriodValue', 24);
 			$shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
@@ -93,10 +94,17 @@ class MainController implements ControllerProviderInterface
 			$minEmoteOccurrences = PHP_INT_MAX;
 			foreach ($visualizedEmotes as $emote)
 			{
-				$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE." "
-								. " WHERE channel='$channel' AND emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+				$stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE." "
+								. " WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 								. " ORDER BY timestamp ASC");
-				if ($stmt === false)
+
+				$res = $stmt->execute(array(
+					':channel' => $channel,
+					':emote' => $emote,
+					':windowStartTime' => $windowStartTime,
+					':windowEndTime' => $windowEndTime));
+
+				if ($res === false)
 					continue;
 
 				if ($stmt->rowCount() > 0)
@@ -118,17 +126,27 @@ class MainController implements ControllerProviderInterface
 			$timer->mark('get_emote_statistics');
 
 			// Get total message count
-			$stmt = $db->query("SELECT timestamp, total_messages FROM channel_stats"
-							. " WHERE channel='$channel' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT timestamp, total_messages FROM channel_stats"
+							. " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " ORDER BY timestamp ASC");
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query total channel message count: " . self::getDBErrorMessage($db));
+
 			$channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'total_messages', self::DEFAULT_SERIES_RESOLUTION, $windowStartTime, $windowEndTime);
 			$timer->mark('get_total_message_count');
 
 			// Chatters active in selected time window
-			$stmt = $db->query("SELECT channel, username, SUM(messages) AS messages FROM ".self::USER_STATS_TABLE
-							. " WHERE channel='$channel' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime AND messages IS NOT NULL"
+			$stmt = $db->prepare("SELECT channel, username, SUM(messages) AS messages FROM ".self::USER_STATS_TABLE
+							. " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime AND messages IS NOT NULL"
 							. " GROUP BY channel, username"
 							. " ORDER BY SUM(messages) DESC");
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query active chatters in time window: " . self::getDBErrorMessage($db));
+
 			$recentChatters = [];
 			$shownRecentChatters = 25;
 			$recentChattersMore = $stmt->rowCount();
@@ -137,10 +155,15 @@ class MainController implements ControllerProviderInterface
 			$timer->mark('get_recent_chatters');
 
 			// Emotes active in selected time window
-			$stmt = $db->query("SELECT channel, emote, SUM(occurrences) AS occurrences FROM ".self::EMOTE_STATS_TABLE
-							. " WHERE channel='$channel' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime AND occurrences IS NOT NULL"
+			$stmt = $db->prepare("SELECT channel, emote, SUM(occurrences) AS occurrences FROM ".self::EMOTE_STATS_TABLE
+							. " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime AND occurrences IS NOT NULL"
 							. " GROUP BY channel, emote"
 							. " ORDER BY SUM(occurrences) DESC");
+
+			$res = $stmt->execute(array(':channel' => $channel, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query used emotes in time window: " . self::getDBErrorMessage($db));
+
 			$recentEmotes = [];
 			$shownRecentEmotes = 25;
 			$recentEmotesMore = $stmt->rowCount();
@@ -168,12 +191,14 @@ class MainController implements ControllerProviderInterface
 		 */
 		$route->get('/channel/{channel}/emotes', function(Request $request, $channel) use($app, $db) {
 			// Real occurrences (including all chatters)
-			$stmt = $db->query("SELECT emotes.emote, type, total_occurrences FROM emotes
-								LEFT JOIN (SELECT channel, emote, total_occurrences FROM emote_stats WHERE channel='$channel' AND timestamp = 0) es
+			$stmt = $db->prepare("SELECT emotes.emote, type, total_occurrences FROM emotes
+								LEFT JOIN (SELECT channel, emote, total_occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0) es
 									ON es.emote=emotes.emote
 								ORDER BY es.total_occurrences DESC");
-			if ($stmt === false)
-				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
+
+			$res = $stmt->execute(array(':channel' => $channel));
+			if ($res === false)
+				$app->abort(500, "Query error: " . self::getDBErrorMessage($db));
 
 			$emotes = [];
 			while ($row = $stmt->fetch())
@@ -243,31 +268,47 @@ class MainController implements ControllerProviderInterface
 				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
 			
 			// Get emote metadata
-			$stmt = $db->query("SELECT emote, type FROM ".self::EMOTES_TABLE." WHERE emote='$emote' LIMIT 1");
+			$stmt = $db->prepare("SELECT emote, type FROM ".self::EMOTES_TABLE." WHERE emote = :emote LIMIT 1");
+			$stmt->execute(array(':emote' => $emote));
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "Emote not found");
 
 			$emoteType = $stmt->fetch()['type'];
 			
 			// Get emote stats
-			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE
-							. " WHERE channel='$channel' AND emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE
+							. " WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " ORDER BY timestamp ASC");
+
+			$res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query emote stats: " . self::getDBErrorMessage($db));
+
 			$stats = $stmt->fetchAll();
 			$minOccurrences = $stats[0]['total_occurrences'];
 			$stats = self::resampleTimeSeries($stats, 'total_occurrences', self::DEFAULT_SERIES_RESOLUTION);
 
 			// Get total occurrences
-			$stmt = $db->query("SELECT SUM(total_occurrences) FROM ("
+			$stmt = $db->prepare("SELECT SUM(total_occurrences) FROM ("
 							. "   SELECT MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. "   WHERE channel='$channel' AND emote='$emote' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+							. "   WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. "   GROUP BY username) a");
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query total occurrences: " . self::getDBErrorMessage($db));
+			
 			$totalOccurences = $stmt->fetch()[0];
 
 			// Leaderboard
-			$stmt = $db->query("SELECT username, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. " WHERE channel='$channel' AND emote='$emote' AND username NOT IN " . self::getExcludedChattersTuple() . " AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT username, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
+							. " WHERE channel = :channel AND emote = :emote AND username NOT IN " . self::getExcludedChattersTuple() . " AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " GROUP BY username ORDER BY MAX(total_occurrences) DESC LIMIT 1000");
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query leaderboard: " . self::getDBErrorMessage($db));
+			
 			$leaderboard = [];
 			while ($row = $stmt->fetch())
 			{
@@ -309,9 +350,20 @@ class MainController implements ControllerProviderInterface
 				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
 			
 			// Get stats
-			$stmt = $db->query("SELECT timestamp, total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE
-							. " WHERE channel='$channel' AND emote='$emote' AND username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE
+							. " WHERE channel = :channel AND emote = :emote AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " ORDER BY timestamp ASC");
+
+			$res = $stmt->execute(array(
+					':channel' => $channel,
+					':emote' => $emote,
+					':username' => $username,
+					':windowStartTime' => $windowStartTime,
+					':windowEndTime' => $windowEndTime));
+
+			if ($res === false)
+				$app->abort(500, "Could not query per-user emote stats: " . self::getDBErrorMessage($db));
+			
 			$stats = self::resampleTimeSeries($stmt->fetchAll(), 'total_occurrences', self::DEFAULT_SERIES_RESOLUTION);
 			
 			// Trim window range into data range
@@ -336,11 +388,13 @@ class MainController implements ControllerProviderInterface
 			$excluded_users = ["nightbot"];
 			$max_rank = $request->query->get('max', 100);
 			
-			$stmt = $db->query("SELECT username, total_messages FROM ".self::USER_STATS_TABLE
-							. " WHERE channel='$channel' AND timestamp = 0"
-							. " ORDER BY total_messages DESC LIMIT ".($max_rank + count(self::EXCLUDED_CHATTERS)));
-			if ($stmt === false)
-				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
+			$stmt = $db->prepare("SELECT username, total_messages FROM ".self::USER_STATS_TABLE
+							. " WHERE channel = :channel AND timestamp = 0"
+							. " ORDER BY total_messages DESC LIMIT :limit");
+
+			$res = $stmt->execute(array(':channel' => $channel, ':limit' => $max_rank + count(self::EXCLUDED_CHATTERS)));
+			if ($res === false)
+				$app->abort(500, "Could not query leaderboard: " . self::getDBErrorMessage($db));
 			
 			$leaderboard = [];
 			$rank = 1;
@@ -375,11 +429,13 @@ class MainController implements ControllerProviderInterface
 				$windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
 			
 			// User message count stats
-			$stmt = $db->query("SELECT timestamp, total_messages FROM ".self::USER_STATS_TABLE.""
-							. " WHERE channel='$channel' AND username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT timestamp, total_messages FROM ".self::USER_STATS_TABLE.""
+							. " WHERE channel = :channel AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " ORDER BY timestamp ASC");
-			if ($stmt === false)
-				$app->abort(500, "Query error: " . $db->errorInfo()[2]);
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':username' => $username, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query user message count stats: " . self::getDBErrorMessage($db));
 
 			if ($stmt->rowCount() == 0)
 				$app->abort(404, "No records found for this user in the given time range.");
@@ -389,9 +445,14 @@ class MainController implements ControllerProviderInterface
 				$windowStartTime = $stats[0]['timestamp'];
 
 			// Emote leaderboard for this user
-			$stmt = $db->query("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-							. " WHERE channel='$channel' AND username='$username' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+			$stmt = $db->prepare("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
+							. " WHERE channel = :channel AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
 							. " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
+			
+			$res = $stmt->execute(array(':channel' => $channel, ':username' => $username, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+			if ($res === false)
+				$app->abort(500, "Could not query emote leaderboard for user: " . self::getDBErrorMessage($db));
+
 			$emoteUsages = [];
 			while ($row = $stmt->fetch())
 				$emoteUsages[$row['emote']] = $row['total_occurrences'];
@@ -565,5 +626,10 @@ class MainController implements ControllerProviderInterface
 		}
 
 		return $result;
+	}
+
+	static function getDBErrorMessage($db)
+	{
+		return $db->errorInfo()[2];
 	}
 }
