@@ -3,7 +3,7 @@ package de.prkz.twitch.emoteanalyser.channel;
 import de.prkz.twitch.emoteanalyser.AbstractStats;
 
 public class ChannelStats extends AbstractStats {
-	public String channel;
-	public long totalMessageCount;
-	public int messageCount;
+    public String channel;
+    public long totalMessageCount;
+    public int messageCount;
 }

@@ -13,90 +13,91 @@ import java.sql.Statement;
 
 public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, String, ChannelStats> {
 
-	private static final String TABLE_NAME = "channel_stats";
+    private static final String TABLE_NAME = "channel_stats";
 
-	public ChannelStatsAggregation(String jdbcUrl,
-								   int dbBatchInterval,
-								   long aggregationIntervalMillis,
-								   long triggerIntervalMillis) {
-		super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
-	}
+    public ChannelStatsAggregation(String jdbcUrl,
+                                   int dbBatchInterval,
+                                   long aggregationIntervalMillis,
+                                   long triggerIntervalMillis) {
+        super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
+    }
 
-	@Override
-	protected ChannelStats createNewStatsForKey(String channel) throws SQLException {
-		ChannelStats stats = new ChannelStats();
-		stats.channel = channel;
+    @Override
+    protected ChannelStats createNewStatsForKey(String channel) throws SQLException {
+        ChannelStats stats = new ChannelStats();
+        stats.channel = channel;
 
-		// Load current count from database, if it exists
-		Statement stmt = conn.createStatement();
-		ResultSet result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
-				"WHERE channel='" + channel + "' " +
-				"ORDER BY timestamp DESC LIMIT 1");
+        // Load current count from database, if it exists
+        Statement stmt = conn.createStatement();
+        ResultSet result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
+                "WHERE channel='" + channel + "' " +
+                "ORDER BY timestamp DESC LIMIT 1");
 
-		if (result.next()) {
-			stats.totalMessageCount = result.getLong(1);
-			stats.messageCount = result.getInt(2);
-			stats.timestamp = result.getLong(3);
-		} else {
-			stats.totalMessageCount = 0;
-			stats.messageCount = 0;
-			stats.timestamp = 0;
-		}
+        if (result.next()) {
+            stats.totalMessageCount = result.getLong(1);
+            stats.messageCount = result.getInt(2);
+            stats.timestamp = result.getLong(3);
+        } else {
+            stats.totalMessageCount = 0;
+            stats.messageCount = 0;
+            stats.timestamp = 0;
+        }
 
-		stmt.close();
-		return stats;
-	}
+        stmt.close();
+        return stats;
+    }
 
-	@Override
-	protected void processWindowElements(ChannelStats stats, Iterable<Message> messages) {
-		stats.messageCount = 0;
-		for (Message message : messages) {
-			stats.messageCount++;
-			stats.totalMessageCount++;
-		}
-	}
+    @Override
+    protected void processWindowElements(ChannelStats stats, Iterable<Message> messages) {
+        stats.messageCount = 0;
+        for (Message message : messages) {
+            stats.messageCount++;
+            stats.totalMessageCount++;
+        }
+    }
 
-	@Override
-	public void prepareTable(Statement stmt) throws SQLException {
-		stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
-				"channel VARCHAR(32) NOT NULL," +
-				"timestamp BIGINT NOT NULL," +
-				"total_messages INT NOT NULL," +
-				"messages INT NOT NULL," +
-				"PRIMARY KEY(channel, timestamp))");
-	}
+    @Override
+    public void prepareTable(Statement stmt) throws SQLException {
+        stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
+                "channel VARCHAR(32) NOT NULL," +
+                "timestamp BIGINT NOT NULL," +
+                "total_messages INT NOT NULL," +
+                "messages INT NOT NULL," +
+                "PRIMARY KEY(channel, timestamp))");
+    }
 
-	@Override
-	protected Iterable<OutputStatement> prepareStatsForOutput(ChannelStats stats) {
-		return OutputStatement.buildBatch()
-				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-						"VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-						"ON CONFLICT(channel, timestamp) DO UPDATE " +
-							"SET total_messages = excluded.total_messages, messages = excluded.messages")
-				.add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-						"VALUES(0, '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-						"ON CONFLICT(channel, timestamp) DO UPDATE " +
-							"SET total_messages = excluded.total_messages, messages = excluded.messages")
-				.finish();
-	}
+    @Override
+    protected Iterable<OutputStatement> prepareStatsForOutput(ChannelStats stats) {
+        return OutputStatement.buildBatch()
+                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
+                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
+                        "ON CONFLICT(channel, timestamp) DO UPDATE " +
+                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
+                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
+                        "VALUES(0, '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
+                        "ON CONFLICT(channel, timestamp) DO UPDATE " +
+                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
+                .finish();
+    }
 
-	@Override
-	public void close() throws Exception {
-		conn.close();
-	}
+    @Override
+    public void close() throws Exception {
+        conn.close();
+    }
 
-	@Override
-	protected TypeInformation<ChannelStats> getStatsTypeInfo() {
-		return TypeInformation.of(new TypeHint<ChannelStats>() {});
-	}
+    @Override
+    protected TypeInformation<ChannelStats> getStatsTypeInfo() {
+        return TypeInformation.of(new TypeHint<ChannelStats>() {
+        });
+    }
 
-	@Override
-	protected KeySelector<Message, String> createKeySelector() {
-		return new KeySelector<Message, String>() {
-			@Override
-			public String getKey(Message message) throws Exception {
-				return message.channel;
-			}
-		};
-	}
+    @Override
+    protected KeySelector<Message, String> createKeySelector() {
+        return new KeySelector<Message, String>() {
+            @Override
+            public String getKey(Message message) throws Exception {
+                return message.channel;
+            }
+        };
+    }
 }
