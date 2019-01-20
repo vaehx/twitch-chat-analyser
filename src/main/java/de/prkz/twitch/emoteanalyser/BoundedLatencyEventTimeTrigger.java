@@ -12,7 +12,10 @@ import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
  * This trigger is essentially an event-time trigger, but also starts a processing-time
  * timer with the first element in a pane. If the watermark did not pass the end of the
  * window before the processing-time timer fires, a "partial" window result can be
- * calculated to allow a fixed latency.
+ * calculated to limit latency.
+ *
+ * If the code processing the panes requires the panes to be fired in event-time order,
+ * the upstream must be guaranteed to be in event-time order.
  */
 public class BoundedLatencyEventTimeTrigger extends Trigger<Object, TimeWindow> {
 
