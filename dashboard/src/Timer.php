@@ -4,45 +4,45 @@ namespace Dashboard;
 
 class Timer
 {
-	private $time = -1;
-	public $times = [];
+    private $time = -1;
+    public $times = [];
 
-	public function start()
-	{
-		$this->time = self::getCurrentTimestamp();
-	}
+    public function start()
+    {
+        $this->time = self::getCurrentTimestamp();
+    }
 
-	// Returns elapsed time since start in milliseconds or false if timer not started
-	public function stop()
-	{
-		if ($this->time == -1)
-			return false;
+    // Returns elapsed time since start in milliseconds or false if timer not started
+    public function stop()
+    {
+        if ($this->time == -1)
+            return false;
 
-		$elapsed = self::getCurrentTimestamp() - $this->time;
-		$this->time = 0;
-		return $elapsed;
-	}
+        $elapsed = self::getCurrentTimestamp() - $this->time;
+        $this->time = 0;
+        return $elapsed;
+    }
 
-	// Equivalent to stopping and immediately restarting the timer.
-	// If name given, stores elapsed time under given name.
-	// Returns elapsed time in milliseconds or false if timer not started.
-	public function mark($name=null)
-	{
-		if ($this->time == -1)
-			return false;
-		
-		$currentTime = self::getCurrentTimestamp();
-		$elapsed = $currentTime - $this->time;
-		$this->time = $currentTime;
+    // Equivalent to stopping and immediately restarting the timer.
+    // If name given, stores elapsed time under given name.
+    // Returns elapsed time in milliseconds or false if timer not started.
+    public function mark($name=null)
+    {
+        if ($this->time == -1)
+            return false;
 
-		if (!is_null($name))
-			$this->times[$name] = $elapsed;
+        $currentTime = self::getCurrentTimestamp();
+        $elapsed = $currentTime - $this->time;
+        $this->time = $currentTime;
 
-		return $elapsed;
-	}
+        if (!is_null($name))
+            $this->times[$name] = $elapsed;
 
-	static function getCurrentTimestamp()
-	{
-		return round(microtime(true) * 1000);
-	}
+        return $elapsed;
+    }
+
+    static function getCurrentTimestamp()
+    {
+        return round(microtime(true) * 1000);
+    }
 }
