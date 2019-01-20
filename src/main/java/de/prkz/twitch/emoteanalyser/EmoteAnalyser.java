@@ -73,8 +73,10 @@ public class EmoteAnalyser {
                 "TwitchMessages", new MessageDeserializationSchema(), kafkaProps);
         DataStream<Message> messages = env
                 .addSource(consumer)
+                .uid("KafkaSource_0")
                 .name("KafkaSource")
-                .assignTimestampsAndWatermarks(new Message.TimestampExtractor(maxOutOfOrdernessMs));
+                .assignTimestampsAndWatermarks(new Message.TimestampExtractor(maxOutOfOrdernessMs))
+                .uid("MessageTimestamps_0");
 
         // There are typically much less rows written for channels
         int channelStatsBatchSize = (int) Math.max(1, Math.round(dbBatchSize * 0.2));
@@ -83,13 +85,13 @@ public class EmoteAnalyser {
         ChannelStatsAggregation channelStatsAggregation =
                 new ChannelStatsAggregation(jdbcUrl, channelStatsBatchSize, aggregationIntervalMs, triggerIntervalMs);
         channelStatsAggregation.prepareTable(stmt);
-        channelStatsAggregation.aggregateAndExportFrom(messages);
+        channelStatsAggregation.aggregateAndExportFrom(messages, "ChannelStats");
 
         // Per-User statistics
         UserStatsAggregation userStatsAggregation =
                 new UserStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
         userStatsAggregation.prepareTable(stmt);
-        userStatsAggregation.aggregateAndExportFrom(messages);
+        userStatsAggregation.aggregateAndExportFrom(messages, "UserStats");
 
 
         // Extract emotes from messages
@@ -97,25 +99,26 @@ public class EmoteAnalyser {
         emoteExtractor.prepareTables(stmt);
         DataStream<Emote> emotes = messages
                 .flatMap(emoteExtractor)
+                .name("ExtractEmotes")
                 .assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
                     @Override
                     public long extractAscendingTimestamp(Emote emote) {
                         return emote.timestamp;
                     }
                 })
-                .name("ExtractEmotes");
+                .uid("EmoteTimestamps_0");
 
         // Per-Emote statistics
         EmoteStatsAggregation emoteStatsAggregation =
                 new EmoteStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
         emoteStatsAggregation.prepareTable(stmt);
-        emoteStatsAggregation.aggregateAndExportFrom(emotes);
+        emoteStatsAggregation.aggregateAndExportFrom(emotes, "EmoteStats");
 
         // Per-Emote per-User statistics
         UserEmoteStatsAggregation userEmoteStatsAggregation =
                 new UserEmoteStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
         userEmoteStatsAggregation.prepareTable(stmt);
-        userEmoteStatsAggregation.aggregateAndExportFrom(emotes);
+        userEmoteStatsAggregation.aggregateAndExportFrom(emotes, "UserEmoteStats");
 
 
         stmt.close();

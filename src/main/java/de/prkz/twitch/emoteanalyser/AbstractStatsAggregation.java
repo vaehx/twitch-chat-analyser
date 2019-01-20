@@ -95,7 +95,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
             conn.close();
     }
 
-    public void aggregateAndExportFrom(DataStream<INPUT> inputStream) {
+    public void aggregateAndExportFrom(DataStream<INPUT> inputStream, String uid) {
         DBOutputFormat outputFormat;
         try {
             outputFormat = DBOutputFormat
@@ -114,13 +114,15 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
                 // Using a continuous purging trigger requires the event-time watermark to progress properly
                 .trigger(PurgingTrigger.of(BoundedLatencyEventTimeTrigger.of(Time.milliseconds(triggerIntervalMillis))))
                 .process(this)
+                .uid(uid + "_process_0")
                 .flatMap(new FlatMapFunction<STATS, OutputStatement>() {
                     @Override
                     public void flatMap(STATS stats, Collector<OutputStatement> collector) throws Exception {
                         prepareStatsForOutput(stats).forEach(stmt -> collector.collect(stmt));
                     }
                 })
-                .writeUsingOutputFormat(outputFormat);
+                .writeUsingOutputFormat(outputFormat)
+                .uid(uid + "_sink_0");
     }
 
     protected abstract TypeInformation<STATS> getStatsTypeInfo();
