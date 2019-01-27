@@ -5,7 +5,7 @@ JDBC_URL="jdbc:postgresql://db:5432/twitch?user=postgres&password=password"
 KAFKA_BOOTSTRAP_SERVER="kafka:9092"
 AGGREGATION_INTERVAL_MS=900000 # 15 min, event-time
 TRIGGER_INTERVAL_MS=5000 # 5 sec, processing-time
-MAX_OUT_OF_ORDERNESS_MS=60000 # 1 min, event-time
+MAX_OUT_OF_ORDERNESS_MS=10000 # 10 sec, event-time
 DB_BATCH_SIZE=1 # rows, batch-size for channel_stats is 1/5th of that or at least 1
 
 
