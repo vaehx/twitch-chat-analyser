@@ -11,7 +11,7 @@ import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer011;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,8 +69,8 @@ public class EmoteAnalyser {
         kafkaProps.setProperty("group.id", "twitch_chat_analyzer");
         kafkaProps.setProperty("auto.offset.reset", "earliest");
 
-        FlinkKafkaConsumer011<Message> consumer = new FlinkKafkaConsumer011<>(
-                "TwitchMessages", new MessageDeserializationSchema(), kafkaProps);
+        FlinkKafkaConsumer<Message> consumer =
+                new FlinkKafkaConsumer<>("TwitchMessages", new MessageDeserializationSchema(), kafkaProps);
         DataStream<Message> messages = env
                 .addSource(consumer)
                 .uid("KafkaSource_0")

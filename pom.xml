@@ -13,7 +13,7 @@
 		<maven.compiler.source>1.8</maven.compiler.source>
 		<maven.compiler.target>1.8</maven.compiler.target>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<flink.version>1.6.3</flink.version>
+		<flink.version>1.7.1</flink.version>
 	</properties>
 
 	<dependencies>
@@ -32,24 +32,19 @@
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-streaming-java_2.11</artifactId>
+			<artifactId>flink-streaming-java_2.12</artifactId>
 			<version>${flink.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-clients_2.11</artifactId>
+			<artifactId>flink-clients_2.12</artifactId>
 			<version>${flink.version}</version>
 			<scope>provided</scope>
 		</dependency>
 		<dependency>
 			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-jdbc</artifactId>
-			<version>${flink.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.flink</groupId>
-			<artifactId>flink-connector-kafka-0.11_2.11</artifactId>
+			<artifactId>flink-connector-kafka_2.12</artifactId>
 			<version>${flink.version}</version>
 		</dependency>
 
@@ -74,14 +69,14 @@
 		<dependency>
 			<groupId>org.json</groupId>
 			<artifactId>json</artifactId>
-			<version>20180130</version>
+			<version>20180813</version>
 		</dependency>
 
 		<!-- Postgre -->
 		<dependency>
 			<groupId>org.postgresql</groupId>
 			<artifactId>postgresql</artifactId>
-			<version>42.2.2</version>
+			<version>42.2.5</version>
 		</dependency>
 	</dependencies>
 
@@ -90,7 +85,7 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-shade-plugin</artifactId>
-				<version>3.1.1</version>
+				<version>3.2.1</version>
 				<executions>
 					<execution>
 						<phase>package</phase>

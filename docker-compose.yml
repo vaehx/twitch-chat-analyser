@@ -57,7 +57,7 @@ services:
   # Flink
   #----------------------------------------------------------------------------
   flink-jobmanager:
-    image: flink:1.6.3
+    build: ./flink
     command: jobmanager
     container_name: tca_flink-jobmanager
     expose:
@@ -67,13 +67,14 @@ services:
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     volumes:
+      # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
       - ./flink-data:/data
     links:
       - db
     restart: always
   
   flink-taskmanager:
-    image: flink:1.6.3
+    build: ./flink
     command: taskmanager
     container_name: tca_flink-taskmanager
     ports:
@@ -82,8 +83,9 @@ services:
     environment:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     volumes:
-      - ./flink-conf/log4j-console.properties:/opt/flink/conf/log4j-console.properties
-      - ./flink-conf/logback-console.xml:/opt/flink/conf/logback-console.properties
+      # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
+      - ./flink/log4j-console.properties:/opt/flink/conf/log4j-console.properties
+      - ./flink/logback-console.xml:/opt/flink/conf/logback-console.properties
       # Same directory, so JM can delete TM checkpoint data
       - ./flink-data:/data
     links:
