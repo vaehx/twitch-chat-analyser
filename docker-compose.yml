@@ -49,6 +49,7 @@ services:
       KAFKA_OFFSETS_RETENTION_MINUTES: 43200
       KAFKA_LOG_RETENTION_HOURS: -1
       KAFKA_LOG_DIRS: /kafka/logs
+      KAFKA_HEAP_OPTS: "-Xmx256M -Xms256M"
     links:
       - zookeeper
     restart: always
