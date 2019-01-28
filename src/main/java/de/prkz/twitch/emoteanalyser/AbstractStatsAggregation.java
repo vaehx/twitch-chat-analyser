@@ -125,6 +125,14 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
                 .uid(uid + "_sink_0");
     }
 
+    /**
+     * Escapes string for use in sql statement
+     */
+    protected static String escapeSingleQuotes(String str) {
+        return str.replaceAll("'", "''");
+    }
+
+
     protected abstract TypeInformation<STATS> getStatsTypeInfo();
 
     protected abstract KeySelector<INPUT, KEY> createKeySelector();

@@ -48,7 +48,7 @@ public class UserEmoteStatsAggregation
         // Load current count from database, if it exists
         Statement stmt = conn.createStatement();
         ResultSet result = stmt.executeQuery("SELECT total_occurrences, occurrences, timestamp FROM " + TABLE_NAME + " WHERE " +
-                "channel='" + stats.channel + "' AND emote='" + stats.emote + "' AND username='" + stats.username + "' " +
+                "channel='" + stats.channel + "' AND emote='" + escapeSingleQuotes(stats.emote) + "' AND username='" + stats.username + "' " +
                 "ORDER BY timestamp DESC LIMIT 1");
 
         if (result.next()) {
@@ -88,13 +88,14 @@ public class UserEmoteStatsAggregation
 
     @Override
     protected Iterable<OutputStatement> prepareStatsForOutput(UserEmoteStats stats) {
+        String escapedEmote = escapeSingleQuotes(stats.emote);
         return OutputStatement.buildBatch()
                 .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.emote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
+                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + escapedEmote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
                         "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +
                         "SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
                 .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-                        "VALUES(0, '" + stats.channel + "', '" + stats.emote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
+                        "VALUES(0, '" + stats.channel + "', '" + escapedEmote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
                         "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +
                         "SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
                 .finish();
