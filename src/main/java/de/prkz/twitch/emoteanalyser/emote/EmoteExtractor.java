@@ -88,9 +88,13 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
             knownChannels.add(channelsResult.getString(1));
         }
 
-        // Check for new global twitch emotes
+        // Check for new global/common twitch emotes
         try {
-            Collection<String> emotes = fetchGlobalTwitchEmotes();
+            Collection<String> emotes = fetchEmoteSets(Arrays.asList(
+                    0, /* Global emotes */
+                    793, /* Twitch Turbo */
+                    19194, /* Twitch Prime */
+                    695138 /* OWL All Access Pass */));
             insertNewEmotes(stmt, emotes, 1, null);
         } catch (Exception ex) {
             LOG.error("Could not fetch global twitch emotes: " + ex.getMessage());
@@ -162,14 +166,36 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         }
     }
 
-    private static Collection<String> fetchGlobalTwitchEmotes() throws Exception {
-        URL url = new URL("https://twitchemotes.com/api_cache/v3/global.json");
+    private static Collection<String> fetchEmoteSets(List<Integer> emoteSets) throws Exception {
+        if (emoteSets.isEmpty())
+            return new ArrayList<>();
+
+        StringBuilder emoteSetsParam = new StringBuilder();
+        for (int i = 0; i < emoteSets.size(); ++i) {
+            if (i > 0)
+                emoteSetsParam.append(',');
+            emoteSetsParam.append(emoteSets.get(i));
+        }
+
+        URL url = new URL("https://api.twitch.tv/kraken/chat/emoticon_images?emotesets=" + emoteSetsParam.toString() +
+                "&client_id=" + TWITCH_API_CLIENT_ID);
         String response = getJSONHttp(url);
 
         JSONObject responseObj = new JSONObject(response);
-        List<String> emotes = new ArrayList<>(responseObj.keySet());
+        JSONObject emoticonSets = responseObj.getJSONObject("emoticon_sets");
+        if (emoticonSets == null)
+            throw new Exception("Response does not include emoticon_sets");
 
-        LOG.info("Fetched " + emotes.size() + " global twitch emotes");
+        Set<String> emotes = new HashSet<>();
+        for (String emoteSetId : emoticonSets.keySet()) {
+            JSONArray emoteSet = emoticonSets.getJSONArray(emoteSetId);
+            for (int i = 0; i < emoteSet.length(); ++i) {
+                JSONObject emote = emoteSet.getJSONObject(i);
+                emotes.add(emote.getString("code"));
+            }
+
+            LOG.info("Fetched " + emoteSet.length() + " emotes in emote set #" + emoteSetId);
+        }
 
         return emotes;
     }
