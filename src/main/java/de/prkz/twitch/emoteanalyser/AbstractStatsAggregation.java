@@ -3,6 +3,7 @@ package de.prkz.twitch.emoteanalyser;
 import de.prkz.twitch.emoteanalyser.output.DBOutputFormat;
 import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.state.StateTtlConfig;
 import org.apache.flink.api.common.state.ValueState;
 import org.apache.flink.api.common.state.ValueStateDescriptor;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -50,8 +51,15 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
     @Override
     public void open(Configuration parameters) throws Exception {
-        statsState = getRuntimeContext().getState(new ValueStateDescriptor<>(
-                "stats", getStatsTypeInfo()));
+        StateTtlConfig ttlConfig = StateTtlConfig
+                .newBuilder(org.apache.flink.api.common.time.Time.milliseconds(triggerIntervalMillis * 3L))
+                .setUpdateType(StateTtlConfig.UpdateType.OnCreateAndWrite)
+                .setStateVisibility(StateTtlConfig.StateVisibility.NeverReturnExpired)
+                .build();
+
+        ValueStateDescriptor<STATS> statsStateDesc = new ValueStateDescriptor<>("stats", getStatsTypeInfo());
+        statsStateDesc.enableTimeToLive(ttlConfig);
+        statsState = getRuntimeContext().getState(statsStateDesc);
 
         conn = DriverManager.getConnection(jdbcUrl);
     }
