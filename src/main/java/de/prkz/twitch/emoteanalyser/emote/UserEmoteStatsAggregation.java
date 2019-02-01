@@ -45,13 +45,20 @@ public class UserEmoteStatsAggregation
         stats.emote = key.f1;
         stats.username = key.f2;
 
+        String escapedEmote = escapeSingleQuotes(stats.emote);
+
         // Load current count from database, if it exists
         Statement stmt = conn.createStatement();
-        ResultSet result = stmt.executeQuery("SELECT total_occurrences, occurrences, timestamp FROM " + TABLE_NAME + " WHERE " +
-                "channel='" + stats.channel + "' AND emote='" + escapeSingleQuotes(stats.emote) + "' AND username='" + stats.username + "' " +
-                "ORDER BY timestamp DESC LIMIT 1");
+        ResultSet result;
 
-        if (result.next()) {
+        result = stmt.executeQuery("SELECT EXISTS(SELECT 1 FROM " + TABLE_NAME + " WHERE " +
+                "channel='" + stats.channel + "' AND emote='" + escapedEmote + "' AND username='" + stats.username + "')");
+        result.next();
+        if (result.getBoolean(1)) {
+            result = stmt.executeQuery("SELECT total_occurrences, occurrences, timestamp FROM " + TABLE_NAME + " WHERE " +
+                    "channel='" + stats.channel + "' AND emote='" + escapeSingleQuotes(stats.emote) + "' AND username='" + stats.username + "' " +
+                    "ORDER BY timestamp DESC LIMIT 1");
+            result.next();
             stats.totalOccurrences = result.getLong(1);
             stats.occurrences = result.getInt(2);
             stats.timestamp = result.getLong(3);

@@ -46,11 +46,16 @@ public class UserStatsAggregation
 
         // Load current count from database, if it exists
         Statement stmt = conn.createStatement();
-        ResultSet result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
-                "WHERE channel='" + stats.channel + "' AND username='" + stats.username + "' " +
-                "ORDER BY timestamp DESC LIMIT 1");
+        ResultSet result;
 
-        if (result.next()) {
+        result = stmt.executeQuery("SELECT EXISTS(SELECT 1 FROM " + TABLE_NAME + " " +
+                "WHERE channel='" + stats.channel + "' AND username='" + stats.username + "')");
+        result.next();
+        if (result.getBoolean(1)) {
+            result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
+                    "WHERE channel='" + stats.channel + "' AND username='" + stats.username + "' " +
+                    "ORDER BY timestamp DESC LIMIT 1");
+            result.next();
             stats.totalMessageCount = result.getLong(1);
             stats.messageCount = result.getInt(2);
             stats.timestamp = result.getLong(3);
