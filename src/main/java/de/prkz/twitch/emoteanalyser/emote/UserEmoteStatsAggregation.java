@@ -1,13 +1,16 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
-import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.types.Row;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 // Key: (channel, emote, username)
 public class UserEmoteStatsAggregation
@@ -15,70 +18,23 @@ public class UserEmoteStatsAggregation
 
     private static final String TABLE_NAME = "user_emote_stats";
 
-    public UserEmoteStatsAggregation(String jdbcUrl,
-                                     int dbBatchInterval,
-                                     long aggregationIntervalMillis,
-                                     long triggerIntervalMillis) {
-        super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
+    public UserEmoteStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
+        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
     }
 
     @Override
-    protected TypeInformation<UserEmoteStats> getStatsTypeInfo() {
-        return TypeInformation.of(new TypeHint<UserEmoteStats>() {
-        });
-    }
-
-    @Override
-    protected KeySelector<Emote, Tuple3<String, String, String>> createKeySelector() {
-        return new KeySelector<Emote, Tuple3<String, String, String>>() {
-            @Override
-            public Tuple3<String, String, String> getKey(Emote emote) throws Exception {
-                return new Tuple3<>(emote.channel, emote.emote, emote.username);
-            }
-        };
-    }
-
-    @Override
-    protected UserEmoteStats createNewStatsForKey(Tuple3<String, String, String> key) throws SQLException {
+    protected UserEmoteStats createNewStatsForKey(Tuple3<String, String, String> key) {
         UserEmoteStats stats = new UserEmoteStats();
         stats.channel = key.f0;
         stats.emote = key.f1;
         stats.username = key.f2;
-
-        String escapedEmote = escapeSingleQuotes(stats.emote);
-
-        // Load current count from database, if it exists
-        Statement stmt = conn.createStatement();
-        ResultSet result;
-
-        result = stmt.executeQuery("SELECT EXISTS(SELECT 1 FROM " + TABLE_NAME + " WHERE " +
-                "channel='" + stats.channel + "' AND emote='" + escapedEmote + "' AND username='" + stats.username + "')");
-        result.next();
-        if (result.getBoolean(1)) {
-            result = stmt.executeQuery("SELECT total_occurrences, occurrences, timestamp FROM " + TABLE_NAME + " WHERE " +
-                    "channel='" + stats.channel + "' AND emote='" + escapeSingleQuotes(stats.emote) + "' AND username='" + stats.username + "' " +
-                    "ORDER BY timestamp DESC LIMIT 1");
-            result.next();
-            stats.totalOccurrences = result.getLong(1);
-            stats.occurrences = result.getInt(2);
-            stats.timestamp = result.getLong(3);
-        } else {
-            stats.totalOccurrences = 0;
-            stats.occurrences = 0;
-            stats.timestamp = 0;
-        }
-
-        stmt.close();
         return stats;
     }
 
     @Override
-    protected void processWindowElements(UserEmoteStats stats, Iterable<Emote> emotes) {
-        stats.occurrences = 0;
-        for (Emote emote : emotes) {
-            stats.occurrences++;
-            stats.totalOccurrences++;
-        }
+    protected UserEmoteStats aggregate(UserEmoteStats stats, Emote element) {
+        stats.occurrences++;
+        return stats;
     }
 
     @Override
@@ -94,17 +50,66 @@ public class UserEmoteStatsAggregation
     }
 
     @Override
-    protected Iterable<OutputStatement> prepareStatsForOutput(UserEmoteStats stats) {
-        String escapedEmote = escapeSingleQuotes(stats.emote);
-        return OutputStatement.buildBatch()
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + escapedEmote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
-                        "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +
-                        "SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-                        "VALUES(0, '" + stats.channel + "', '" + escapedEmote + "', '" + stats.username + "', " + stats.totalOccurrences + ", " + stats.occurrences + ") " +
-                        "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE " +
-                        "SET total_occurrences = excluded.total_occurrences, occurrences = excluded.occurrences")
-                .finish();
+    protected String getUpsertSql() {
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
+                "VALUES(?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE SET " +
+                "total_occurrences = " + TABLE_NAME + ".total_occurrences + EXCLUDED.occurrences, " +
+                "occurrences = " + TABLE_NAME + ".occurrences + EXCLUDED.occurrences";
+    }
+
+    @Override
+    protected int[] getUpsertTypes() {
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+    }
+
+    @Override
+    protected Collection<Row> prepareStatsForOutput(UserEmoteStats stats) {
+        List<Row> rows = new ArrayList<>();
+
+        Row latest = new Row(6);
+        latest.setField(0, stats.timestamp);
+        latest.setField(1, stats.channel);
+        latest.setField(2, stats.emote);
+        latest.setField(3, stats.username);
+        latest.setField(4, stats.occurrences);
+        latest.setField(5, stats.occurrences);
+        rows.add(latest);
+
+        Row total = new Row(6);
+        total.setField(0, LATEST_TOTAL_TIMESTAMP);
+        total.setField(1, stats.channel);
+        total.setField(2, stats.emote);
+        total.setField(3, stats.username);
+        total.setField(4, stats.occurrences);
+        total.setField(5, stats.occurrences);
+        rows.add(total);
+
+        return rows;
+    }
+
+    @Override
+    protected TypeInformation<UserEmoteStats> getStatsTypeInfo() {
+        return TypeInformation.of(new TypeHint<UserEmoteStats>() {});
+    }
+
+    @Override
+    protected TypeInformation<Tuple2<Tuple3<String, String, String>, Long>> getKeyTypeInfo() {
+        return TypeInformation.of(new TypeHint<Tuple2<Tuple3<String, String, String>, Long>>() {});
+    }
+
+    @Override
+    protected long getTimestampForElement(Emote emote) {
+        return emote.timestamp;
+    }
+
+    @Override
+    protected Tuple3<String, String, String> getKeyForElement(Emote emote) {
+        return new Tuple3<>(emote.channel, emote.emote, emote.username);
+    }
+
+    @Override
+    protected Integer getHashForElement(Emote emote) {
+        return (emote.channel + "," + emote.emote + "," + emote.username).hashCode();
     }
 }

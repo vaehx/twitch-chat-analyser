@@ -2,80 +2,37 @@ package de.prkz.twitch.emoteanalyser.user;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
-import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.types.Row;
 
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class UserStatsAggregation
         extends AbstractStatsAggregation<Message, Tuple2<String, String>, UserStats> {
 
     private static final String TABLE_NAME = "user_stats";
 
-    public UserStatsAggregation(String jdbcUrl,
-                                int dbBatchInterval,
-                                long aggregationIntervalMillis,
-                                long triggerIntervalMillis) {
-        super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
+    public UserStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
+        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
     }
 
     @Override
-    protected TypeInformation<UserStats> getStatsTypeInfo() {
-        return TypeInformation.of(new TypeHint<UserStats>() {
-        });
-    }
-
-    @Override
-    protected KeySelector<Message, Tuple2<String, String>> createKeySelector() {
-        return new KeySelector<Message, Tuple2<String, String>>() {
-            @Override
-            public Tuple2<String, String> getKey(Message message) throws Exception {
-                return new Tuple2<>(message.channel, message.username);
-            }
-        };
-    }
-
-    @Override
-    protected UserStats createNewStatsForKey(Tuple2<String, String> key) throws SQLException {
+    protected UserStats createNewStatsForKey(Tuple2<String, String> key) {
         UserStats stats = new UserStats();
         stats.channel = key.f0;
         stats.username = key.f1;
-
-        // Load current count from database, if it exists
-        Statement stmt = conn.createStatement();
-        ResultSet result;
-
-        result = stmt.executeQuery("SELECT EXISTS(SELECT 1 FROM " + TABLE_NAME + " " +
-                "WHERE channel='" + stats.channel + "' AND username='" + stats.username + "')");
-        result.next();
-        if (result.getBoolean(1)) {
-            result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
-                    "WHERE channel='" + stats.channel + "' AND username='" + stats.username + "' " +
-                    "ORDER BY timestamp DESC LIMIT 1");
-            result.next();
-            stats.totalMessageCount = result.getLong(1);
-            stats.messageCount = result.getInt(2);
-            stats.timestamp = result.getLong(3);
-        } else {
-            stats.totalMessageCount = 0;
-            stats.messageCount = 0;
-            stats.timestamp = 0;
-        }
-
-        stmt.close();
         return stats;
     }
 
     @Override
-    protected void processWindowElements(UserStats stats, Iterable<Message> messages) {
-        stats.messageCount = 0;
-        for (Message message : messages) {
-            stats.messageCount++;
-            stats.totalMessageCount++;
-        }
+    protected UserStats aggregate(UserStats stats, Message element) {
+        stats.messageCount++;
+        return stats;
     }
 
     @Override
@@ -90,16 +47,64 @@ public class UserStatsAggregation
     }
 
     @Override
-    protected Iterable<OutputStatement> prepareStatsForOutput(UserStats stats) {
-        return OutputStatement.buildBatch()
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
-                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', '" + stats.username + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-                        "ON CONFLICT(channel, username, timestamp) DO UPDATE " +
-                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
-                        "VALUES(0, '" + stats.channel + "', '" + stats.username + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-                        "ON CONFLICT(channel, username, timestamp) DO UPDATE " +
-                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
-                .finish();
+    protected String getUpsertSql() {
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
+                "VALUES(?, ?, ?, ?, ?) " +
+                "ON CONFLICT(channel, username, timestamp) DO UPDATE SET " +
+                "total_messages = " + TABLE_NAME + ".total_messages + EXCLUDED.messages, " +
+                "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
+    }
+
+    @Override
+    protected int[] getUpsertTypes() {
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+    }
+
+    @Override
+    protected Collection<Row> prepareStatsForOutput(UserStats stats) {
+        List<Row> rows = new ArrayList<>();
+
+        Row latest = new Row(5);
+        latest.setField(0, stats.timestamp);
+        latest.setField(1, stats.channel);
+        latest.setField(2, stats.username);
+        latest.setField(3, stats.messageCount);
+        latest.setField(4, stats.messageCount);
+        rows.add(latest);
+
+        Row total = new Row(5);
+        total.setField(0, LATEST_TOTAL_TIMESTAMP);
+        total.setField(1, stats.channel);
+        total.setField(2, stats.username);
+        total.setField(3, stats.messageCount);
+        total.setField(4, stats.messageCount);
+        rows.add(total);
+
+        return rows;
+    }
+
+    @Override
+    protected TypeInformation<UserStats> getStatsTypeInfo() {
+        return TypeInformation.of(new TypeHint<UserStats>() {});
+    }
+
+    @Override
+    protected TypeInformation<Tuple2<Tuple2<String, String>, Long>> getKeyTypeInfo() {
+        return TypeInformation.of(new TypeHint<Tuple2<Tuple2<String, String>, Long>>() {});
+    }
+
+    @Override
+    protected long getTimestampForElement(Message message) {
+        return message.timestamp;
+    }
+
+    @Override
+    protected Tuple2<String, String> getKeyForElement(Message message) {
+        return new Tuple2<>(message.channel, message.username);
+    }
+
+    @Override
+    protected Integer getHashForElement(Message message) {
+        return (message.channel + "," + message.username).hashCode();
     }
 }

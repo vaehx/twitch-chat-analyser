@@ -4,6 +4,5 @@ import de.prkz.twitch.emoteanalyser.AbstractStats;
 
 public class ChannelStats extends AbstractStats {
     public String channel;
-    public long totalMessageCount;
-    public int messageCount;
+    public int messageCount = 0;
 }

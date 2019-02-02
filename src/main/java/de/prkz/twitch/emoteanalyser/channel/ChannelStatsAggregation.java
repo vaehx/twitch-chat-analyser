@@ -2,64 +2,38 @@ package de.prkz.twitch.emoteanalyser.channel;
 
 import de.prkz.twitch.emoteanalyser.AbstractStatsAggregation;
 import de.prkz.twitch.emoteanalyser.Message;
-import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
-import org.apache.flink.api.java.functions.KeySelector;
+import org.apache.flink.api.java.tuple.Tuple2;
+import org.apache.flink.types.Row;
 
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 
 public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, String, ChannelStats> {
 
     private static final String TABLE_NAME = "channel_stats";
 
-    public ChannelStatsAggregation(String jdbcUrl,
-                                   int dbBatchInterval,
-                                   long aggregationIntervalMillis,
-                                   long triggerIntervalMillis) {
-        super(jdbcUrl, dbBatchInterval, aggregationIntervalMillis, triggerIntervalMillis);
+    public ChannelStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
+        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
     }
 
+
     @Override
-    protected ChannelStats createNewStatsForKey(String channel) throws SQLException {
+    protected ChannelStats createNewStatsForKey(String channel) {
         ChannelStats stats = new ChannelStats();
         stats.channel = channel;
-
-        // Load current count from database, if it exists
-        Statement stmt = conn.createStatement();
-        ResultSet result;
-
-        // Running the actual query for the last row may be slow if the key does not even exist in the index
-        result = stmt.executeQuery("SELECT EXISTS(SELECT 1 FROM " + TABLE_NAME + " WHERE channel='" + channel + "')");
-        result.next();
-        if (result.getBoolean(1)) {
-            result = stmt.executeQuery("SELECT total_messages, messages, timestamp FROM " + TABLE_NAME + " " +
-                    "WHERE channel='" + channel + "' " +
-                    "ORDER BY timestamp DESC LIMIT 1");
-            result.next();
-
-            stats.totalMessageCount = result.getLong(1);
-            stats.messageCount = result.getInt(2);
-            stats.timestamp = result.getLong(3);
-        } else {
-            stats.totalMessageCount = 0;
-            stats.messageCount = 0;
-            stats.timestamp = 0;
-        }
-
-        stmt.close();
         return stats;
     }
 
     @Override
-    protected void processWindowElements(ChannelStats stats, Iterable<Message> messages) {
-        stats.messageCount = 0;
-        for (Message message : messages) {
-            stats.messageCount++;
-            stats.totalMessageCount++;
-        }
+    protected ChannelStats aggregate(ChannelStats stats, Message element) {
+        stats.messageCount++;
+        return stats;
     }
 
     @Override
@@ -73,37 +47,63 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
     }
 
     @Override
-    protected Iterable<OutputStatement> prepareStatsForOutput(ChannelStats stats) {
-        return OutputStatement.buildBatch()
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-                        "VALUES(" + stats.timestamp + ", '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-                        "ON CONFLICT(channel, timestamp) DO UPDATE " +
-                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
-                .add("INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-                        "VALUES(0, '" + stats.channel + "', " + stats.totalMessageCount + ", " + stats.messageCount + ") " +
-                        "ON CONFLICT(channel, timestamp) DO UPDATE " +
-                        "SET total_messages = excluded.total_messages, messages = excluded.messages")
-                .finish();
+    protected String getUpsertSql() {
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
+                "VALUES(?, ?, ?, ?) " +
+                "ON CONFLICT(channel, timestamp) DO UPDATE SET " +
+                "total_messages = " + TABLE_NAME + ".total_messages + EXCLUDED.messages, " +
+                "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
     }
 
     @Override
-    public void close() throws Exception {
-        conn.close();
+    protected int[] getUpsertTypes() {
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+    }
+
+
+    @Override
+    protected Collection<Row> prepareStatsForOutput(ChannelStats stats) {
+        List<Row> rows = new ArrayList<>();
+
+        Row latest = new Row(4);
+        latest.setField(0, stats.timestamp);
+        latest.setField(1, stats.channel);
+        latest.setField(2, stats.messageCount);
+        latest.setField(3, stats.messageCount);
+        rows.add(latest);
+
+        Row total = new Row(4);
+        total.setField(0, LATEST_TOTAL_TIMESTAMP);
+        total.setField(1, stats.channel);
+        total.setField(2, stats.messageCount);
+        total.setField(3, stats.messageCount);
+        rows.add(total);
+
+        return rows;
+    }
+
+    @Override
+    protected TypeInformation<Tuple2<String, Long>> getKeyTypeInfo() {
+        return TypeInformation.of(new TypeHint<Tuple2<String, Long>>() {});
     }
 
     @Override
     protected TypeInformation<ChannelStats> getStatsTypeInfo() {
-        return TypeInformation.of(new TypeHint<ChannelStats>() {
-        });
+        return TypeInformation.of(new TypeHint<ChannelStats>() {});
     }
 
     @Override
-    protected KeySelector<Message, String> createKeySelector() {
-        return new KeySelector<Message, String>() {
-            @Override
-            public String getKey(Message message) throws Exception {
-                return message.channel;
-            }
-        };
+    protected long getTimestampForElement(Message message) {
+        return message.timestamp;
+    }
+
+    @Override
+    protected String getKeyForElement(Message message) {
+        return message.channel;
+    }
+
+    @Override
+    protected Integer getHashForElement(Message message) {
+        return message.channel.hashCode();
     }
 }

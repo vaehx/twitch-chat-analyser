@@ -25,6 +25,7 @@ public class EmoteAnalyser {
     private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
 
     private static final long CHECKPOINT_INTERVAL_MS = 60000;
+    private static final int PARALLELISM = 1;
 
     public static void main(String[] args) throws Exception {
 
@@ -34,9 +35,9 @@ public class EmoteAnalyser {
 
 
         // Parse arguments
-        if (args.length < 6) {
+        if (args.length < 5) {
             System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <aggregation-interval-ms> " +
-                    "<trigger-interval-ms> <max-out-of-orderness-ms> <db-batch-size>");
+                    "<trigger-interval-ms> <max-out-of-orderness-ms>");
             System.exit(1);
         }
 
@@ -45,7 +46,6 @@ public class EmoteAnalyser {
         long aggregationIntervalMs = Long.parseLong(args[2]);
         long triggerIntervalMs = Long.parseLong(args[3]);
         long maxOutOfOrdernessMs = Long.parseLong(args[4]);
-        int dbBatchSize = Integer.parseInt(args[5]);
 
         // Prepare database
         Connection conn = DriverManager.getConnection(jdbcUrl);
@@ -78,20 +78,17 @@ public class EmoteAnalyser {
                 .assignTimestampsAndWatermarks(new Message.TimestampExtractor(maxOutOfOrdernessMs))
                 .uid("MessageTimestamps_0");
 
-        // There are typically much less rows written for channels
-        int channelStatsBatchSize = (int) Math.max(1, Math.round(dbBatchSize * 0.2));
-
         // Per-Channel statistics
         ChannelStatsAggregation channelStatsAggregation =
-                new ChannelStatsAggregation(jdbcUrl, channelStatsBatchSize, aggregationIntervalMs, triggerIntervalMs);
+                new ChannelStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         channelStatsAggregation.prepareTable(stmt);
-        channelStatsAggregation.aggregateAndExportFrom(messages, "ChannelStats");
+        channelStatsAggregation.aggregateAndExportFrom(messages, PARALLELISM, "ChannelStats");
 
         // Per-User statistics
         UserStatsAggregation userStatsAggregation =
-                new UserStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
+                new UserStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         userStatsAggregation.prepareTable(stmt);
-        userStatsAggregation.aggregateAndExportFrom(messages, "UserStats");
+        userStatsAggregation.aggregateAndExportFrom(messages, PARALLELISM, "UserStats");
 
 
         // Extract emotes from messages
@@ -110,15 +107,15 @@ public class EmoteAnalyser {
 
         // Per-Emote statistics
         EmoteStatsAggregation emoteStatsAggregation =
-                new EmoteStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
+                new EmoteStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         emoteStatsAggregation.prepareTable(stmt);
-        emoteStatsAggregation.aggregateAndExportFrom(emotes, "EmoteStats");
+        emoteStatsAggregation.aggregateAndExportFrom(emotes, PARALLELISM, "EmoteStats");
 
         // Per-Emote per-User statistics
         UserEmoteStatsAggregation userEmoteStatsAggregation =
-                new UserEmoteStatsAggregation(jdbcUrl, dbBatchSize, aggregationIntervalMs, triggerIntervalMs);
+                new UserEmoteStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         userEmoteStatsAggregation.prepareTable(stmt);
-        userEmoteStatsAggregation.aggregateAndExportFrom(emotes, "UserEmoteStats");
+        userEmoteStatsAggregation.aggregateAndExportFrom(emotes, PARALLELISM, "UserEmoteStats");
 
 
         stmt.close();
