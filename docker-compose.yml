@@ -71,7 +71,7 @@ services:
       # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
       - ./flink-data:/data
     links:
-      - db
+      - timescaledb
     restart: always
   
   flink-taskmanager:
@@ -91,24 +91,22 @@ services:
       - ./flink-data:/data
     links:
       - flink-jobmanager
-      - db
+      - timescaledb
       - zookeeper
       - kafka
     restart: always
 
   #----------------------------------------------------------------------------
-  # Postgres
+  # TimescaleDB
   #----------------------------------------------------------------------------
-  db:
-    image: postgres:alpine
-    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
-    container_name: tca_db
+  timescaledb:
+    image: timescale/timescaledb:latest-pg11
+    container_name: tca_timescaledb
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: twitch
     volumes:
-      - ./db-storage:/var/lib/postgresql/data
-      - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./timescaledb-storage:/var/lib/postgresql/data
     expose:
       - "5432"
     restart: always
@@ -126,5 +124,5 @@ services:
       - ./dashboard:/var/www/html
       - ./dashboard/php.ini:/usr/local/etc/php/php-dashboard.ini:ro
     links:
-      - db
+      - timescaledb
     restart: always

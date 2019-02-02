@@ -1,7 +1,7 @@
 #!/bin/bash
 
 PARALLELISM=1
-JDBC_URL="jdbc:postgresql://db:5432/twitch?user=postgres&password=password" 
+JDBC_URL="jdbc:postgresql://timescaledb:5432/twitch?user=postgres&password=password" 
 KAFKA_BOOTSTRAP_SERVER="kafka:9092"
 AGGREGATION_INTERVAL_MS=900000 # 15 min, event-time
 TRIGGER_INTERVAL_MS=5000 # 5 sec, processing-time
