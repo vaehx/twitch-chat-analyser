@@ -41,23 +41,21 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
         stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
                 "channel VARCHAR(32) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
-                "total_messages INT NOT NULL," +
                 "messages INT NOT NULL," +
                 "PRIMARY KEY(channel, timestamp))");
     }
 
     @Override
     protected String getUpsertSql() {
-        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, total_messages, messages) " +
-                "VALUES(?, ?, ?, ?) " +
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, messages) " +
+                "VALUES(?, ?, ?) " +
                 "ON CONFLICT(channel, timestamp) DO UPDATE SET " +
-                "total_messages = " + TABLE_NAME + ".total_messages + EXCLUDED.messages, " +
                 "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
     }
 
     @Override
     protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.INTEGER};
     }
 
 
@@ -65,18 +63,16 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
     protected Collection<Row> prepareStatsForOutput(ChannelStats stats) {
         List<Row> rows = new ArrayList<>();
 
-        Row latest = new Row(4);
+        Row latest = new Row(3);
         latest.setField(0, stats.timestamp);
         latest.setField(1, stats.channel);
         latest.setField(2, stats.messageCount);
-        latest.setField(3, stats.messageCount);
         rows.add(latest);
 
-        Row total = new Row(4);
+        Row total = new Row(3);
         total.setField(0, LATEST_TOTAL_TIMESTAMP);
         total.setField(1, stats.channel);
         total.setField(2, stats.messageCount);
-        total.setField(3, stats.messageCount);
         rows.add(total);
 
         return rows;

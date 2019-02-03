@@ -41,43 +41,39 @@ public class EmoteStatsAggregation
                 "channel VARCHAR(32) NOT NULL," +
                 "emote VARCHAR(64) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
-                "total_occurrences INT NOT NULL DEFAULT 0," +
                 "occurrences INT NOT NULL DEFAULT 0," +
                 "PRIMARY KEY(channel, emote, timestamp))");
     }
 
     @Override
     protected String getUpsertSql() {
-        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, total_occurrences, occurrences) " +
-                "VALUES(?, ?, ?, ?, ?) " +
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, occurrences) " +
+                "VALUES(?, ?, ?, ?) " +
                 "ON CONFLICT(channel, emote, timestamp) DO UPDATE SET " +
-                "total_occurrences = " + TABLE_NAME + ".total_occurrences + EXCLUDED.occurrences, " +
                 "occurrences = " + TABLE_NAME + ".occurrences + EXCLUDED.occurrences";
     }
 
     @Override
     protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER};
     }
 
     @Override
     protected Collection<Row> prepareStatsForOutput(EmoteStats stats) {
         List<Row> rows = new ArrayList<>();
 
-        Row latest = new Row(5);
+        Row latest = new Row(4);
         latest.setField(0, stats.timestamp);
         latest.setField(1, stats.channel);
         latest.setField(2, stats.emote);
         latest.setField(3, stats.occurrences);
-        latest.setField(4, stats.occurrences);
         rows.add(latest);
 
-        Row total = new Row(5);
+        Row total = new Row(4);
         total.setField(0, LATEST_TOTAL_TIMESTAMP);
         total.setField(1, stats.channel);
         total.setField(2, stats.emote);
         total.setField(3, stats.occurrences);
-        total.setField(4, stats.occurrences);
         rows.add(total);
 
         return rows;

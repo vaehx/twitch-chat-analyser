@@ -44,45 +44,41 @@ public class UserEmoteStatsAggregation
                 "emote VARCHAR(64) NOT NULL," +
                 "username VARCHAR(32) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
-                "total_occurrences INT NOT NULL DEFAULT 0," +
                 "occurrences INT NOT NULL DEFAULT 0," +
                 "PRIMARY KEY(channel, emote, username, timestamp))");
     }
 
     @Override
     protected String getUpsertSql() {
-        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, total_occurrences, occurrences) " +
-                "VALUES(?, ?, ?, ?, ?, ?) " +
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, occurrences) " +
+                "VALUES(?, ?, ?, ?, ?) " +
                 "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE SET " +
-                "total_occurrences = " + TABLE_NAME + ".total_occurrences + EXCLUDED.occurrences, " +
                 "occurrences = " + TABLE_NAME + ".occurrences + EXCLUDED.occurrences";
     }
 
     @Override
     protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER};
     }
 
     @Override
     protected Collection<Row> prepareStatsForOutput(UserEmoteStats stats) {
         List<Row> rows = new ArrayList<>();
 
-        Row latest = new Row(6);
+        Row latest = new Row(5);
         latest.setField(0, stats.timestamp);
         latest.setField(1, stats.channel);
         latest.setField(2, stats.emote);
         latest.setField(3, stats.username);
         latest.setField(4, stats.occurrences);
-        latest.setField(5, stats.occurrences);
         rows.add(latest);
 
-        Row total = new Row(6);
+        Row total = new Row(5);
         total.setField(0, LATEST_TOTAL_TIMESTAMP);
         total.setField(1, stats.channel);
         total.setField(2, stats.emote);
         total.setField(3, stats.username);
         total.setField(4, stats.occurrences);
-        total.setField(5, stats.occurrences);
         rows.add(total);
 
         return rows;

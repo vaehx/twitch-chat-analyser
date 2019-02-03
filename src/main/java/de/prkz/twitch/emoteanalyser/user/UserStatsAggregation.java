@@ -41,43 +41,39 @@ public class UserStatsAggregation
                 "channel VARCHAR(32) NOT NULL," +
                 "username VARCHAR(32) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
-                "total_messages INT NOT NULL DEFAULT 0," +
                 "messages INT NOT NULL DEFAULT 0," +
                 "PRIMARY KEY(channel, username, timestamp))");
     }
 
     @Override
     protected String getUpsertSql() {
-        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, total_messages, messages) " +
-                "VALUES(?, ?, ?, ?, ?) " +
+        return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, messages) " +
+                "VALUES(?, ?, ?, ?) " +
                 "ON CONFLICT(channel, username, timestamp) DO UPDATE SET " +
-                "total_messages = " + TABLE_NAME + ".total_messages + EXCLUDED.messages, " +
                 "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
     }
 
     @Override
     protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER, Types.INTEGER};
+        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER};
     }
 
     @Override
     protected Collection<Row> prepareStatsForOutput(UserStats stats) {
         List<Row> rows = new ArrayList<>();
 
-        Row latest = new Row(5);
+        Row latest = new Row(4);
         latest.setField(0, stats.timestamp);
         latest.setField(1, stats.channel);
         latest.setField(2, stats.username);
         latest.setField(3, stats.messageCount);
-        latest.setField(4, stats.messageCount);
         rows.add(latest);
 
-        Row total = new Row(5);
+        Row total = new Row(4);
         total.setField(0, LATEST_TOTAL_TIMESTAMP);
         total.setField(1, stats.channel);
         total.setField(2, stats.username);
         total.setField(3, stats.messageCount);
-        total.setField(4, stats.messageCount);
         rows.add(total);
 
         return rows;
