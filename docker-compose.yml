@@ -78,7 +78,7 @@ services:
     build: ./flink
     command: taskmanager
     container_name: tca_flink-taskmanager
-    ports:
+    expose:
       - "6121"
       - "6122"
     environment:
