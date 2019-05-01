@@ -62,6 +62,35 @@ class ApiController implements ControllerProviderInterface
             return $app->json($result);
         })->bind('api_channel_emote_stats');
 
+        /**
+         * Statistics about a specific user
+         */
+        $route->get('/user/{username}', function($username) use($app, $db) {
+            $result = ['channels' => []];
+
+            // Get total message count in each channel
+            $stmt = $db->prepare("SELECT channel, messages FROM user_stats WHERE username = :username AND timestamp = 0");
+            $res = $stmt->execute(array(':username' => $username));
+
+            if ($res === false || $stmt->rowCount() == 0)
+                return $app->json($result);
+
+            while ($row = $stmt->fetch())
+                $result['channels'][$row['channel']] = ['messages' => $row['messages']];
+
+            // Get last seen time
+            $stmt = $db->prepare("SELECT channel, MAX(timestamp) AS last_seen FROM user_stats WHERE username = :username GROUP BY channel");
+            $res = $stmt->execute(array(':username' => $username));
+
+            if ($res === false || $stmt->rowCount() == 0)
+                return $app->json($result);
+
+            while ($row = $stmt->fetch())
+                $result['channels'][$row['channel']]['last_seen'] = floor($row['last_seen'] / 1000); // ms -> seconds
+
+            return $app->json($result);
+        })->bind('api_user');
+
         return $route;
     }
 }
