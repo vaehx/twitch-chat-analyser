@@ -27,7 +27,7 @@ class ApiController implements ControllerProviderInterface
          * Emote statistics
          */
         $route->get('/emote_stats', function(Request $request) use($app, $db) {
-            $sql = "SELECT channel, emote, total_occurrences FROM " . self::EMOTE_STATS_TABLE . " WHERE timestamp = 0";
+            $sql = "SELECT channel, emote, occurrences FROM " . self::EMOTE_STATS_TABLE . " WHERE timestamp = 0";
             $params = array();
             if ($request->query->has('emotes'))
             {
@@ -54,7 +54,7 @@ class ApiController implements ControllerProviderInterface
                         $result['channels'][$channel] = [];
 
                     $result['channels'][$channel][$stat['emote']] = (object)array(
-                        'total_occurrences' => $stat['total_occurrences']
+                        'total_occurrences' => $stat['occurrences']
                     );
                 }
             }
