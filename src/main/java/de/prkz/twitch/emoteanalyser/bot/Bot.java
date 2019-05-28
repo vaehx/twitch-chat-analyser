@@ -7,6 +7,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.pircbotx.PircBotX;
 import org.pircbotx.hooks.ListenerAdapter;
+import org.pircbotx.hooks.events.ConnectAttemptFailedEvent;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -76,5 +77,16 @@ public class Bot extends ListenerAdapter {
         m.message = event.getMessage();
 
         producer.send(new ProducerRecord<>(TOPIC, m.timestamp, m));
+    }
+
+    @Override
+    public void onConnectAttemptFailed(ConnectAttemptFailedEvent event) {
+        if (event.getRemainingAttempts() <= 0) {
+            int attempts = event.getBot().getConfiguration().getAutoReconnectAttempts();
+            LOG.error("Bot could not reconnect after " + attempts + " attempts. " +
+                    "Forcing crash to restart service...");
+
+            System.exit(1);
+        }
     }
 }
