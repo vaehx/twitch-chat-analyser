@@ -52,6 +52,8 @@ public class Bot extends ListenerAdapter {
                 .addListener(bot)
                 .addAutoJoinChannels(channels)
                 .setAutoReconnect(true)
+                .setAutoReconnectAttempts(20)
+                .setAutoReconnectDelay(10000)
                 .buildConfiguration();
 
         LOG.info("Now starting bot...");
