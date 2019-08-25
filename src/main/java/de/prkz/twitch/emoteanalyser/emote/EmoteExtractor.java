@@ -23,6 +23,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private static final String EMOTES_TABLE_NAME = "emotes";
     private static final String TWITCH_API_CLIENT_ID = "ccxk8gzqpe0qd8t5lmwf45t1kplfi1";
     private static final long EMOTE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+    private static final int EMOTE_FETCH_TIMEOUT_MS = 20 * 1000;
     private transient long lastEmoteFetch;
     private transient Set<String> knownChannels;
     private transient Set<String> emotes;
@@ -68,11 +69,14 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     }
 
     /**
-     * First, refreshes/completes the current emotes list in the database by re-fetching channel
+     * <p>First, refreshes/completes the current emotes list in the database by re-fetching channel
      * emotes from twitch api for all known channels (as stored in <code>knownChannels</code>
-     * and/or known channels in emotes table).
-     * <p>
-     * Then, the whole emote list from database is loaded as the new set of emotes to match against.
+     * and/or known channels in emotes table).</p>
+     *
+     * <p>Then, the whole emote list from database is loaded as the new set of emotes to match against.</p>
+     *
+     * <p>If some emotes could not be fetched due to an exception, the error will be logged and execution
+     * continues, such that the fetch can be retried later.</p>
      */
     private void reloadEmotes() throws Exception {
         long startTime = System.currentTimeMillis();
@@ -288,6 +292,8 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private static String getJSONHttp(URL url) throws Exception {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
+        con.setConnectTimeout(EMOTE_FETCH_TIMEOUT_MS);
+        con.setReadTimeout(EMOTE_FETCH_TIMEOUT_MS);
         con.setRequestMethod("GET");
         con.setRequestProperty("Content-Type", "application/json");
 
