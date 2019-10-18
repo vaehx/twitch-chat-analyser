@@ -92,6 +92,23 @@ class ApiController implements ControllerProviderInterface
         })->bind('api_user');
 
         /**
+         * Statistics about all channels
+         */
+        $route->get('/channels', function() use($app, $db) {
+            $result = [];
+            $stmt = $db->prepare("SELECT channel, messages FROM channel_stats WHERE timestamp = 0");
+            $res = $stmt->execute([]);
+
+            if ($res === false)
+                $app->abort(500, "Internal query error");
+
+            while ($row = $stmt->fetch())
+                $result[$row['channel']] = $row['messages'];
+
+            return $app->json($result);
+        })->bind('api_channels');
+
+        /**
          * Statistics about a channel
          */
         $route->get('/channel/{channel}', function($channel) use($app, $db) {
