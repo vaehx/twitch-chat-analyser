@@ -91,6 +91,50 @@ class ApiController implements ControllerProviderInterface
             return $app->json($result);
         })->bind('api_user');
 
+        /**
+         * Statistics about a channel
+         */
+        $route->get('/channel/{channel}', function($channel) use($app, $db) {
+            $result = [];
+            
+            // Get latest message counts
+            $stmt = $db->prepare("SELECT messages FROM channel_stats WHERE channel = :channel AND timestamp = 0");
+            $res = $stmt->execute(array(':channel' => $channel));
+
+            if ($res === false || $stmt->rowCount() == 0)
+                $app->abort(404, 'Channel not found');
+
+            $row = $stmt->fetch();
+            $result['total_messages'] = $row['messages'];
+
+            $times = [
+                'messages_last_5min' => 5 * 60 * 1000,
+                'messages_last_1h' => 60 * 60 * 1000,
+                'messages_last_24h' => 24 * 60 * 60 * 1000,
+                'messages_last_7d' => 7 * 24 * 60 * 60 * 1000,
+                'messages_last_month' => 30 * 24 * 60 * 60 * 1000
+            ];
+
+            date_default_timezone_set('Europe/Berlin');
+            $now = time() * 1000;
+            $stmt = $db->prepare('SELECT SUM(messages) AS messages FROM channel_stats WHERE channel = :channel AND timestamp > :t');
+            foreach ($times as $name => $dt)
+            {
+                $res = $stmt->execute(array(':channel' => $channel, ':t' => $now - $dt));
+                if ($res !== false && $stmt->rowCount() > 0)
+                {
+                    $row = $stmt->fetch();
+                    $result[$name] = $row['messages'] !== null ? $row['messages'] : 0;
+                }
+                else
+                {
+                    $result[$name] = 0;
+                }
+            }
+
+            return $app->json($result);
+        })->bind('api_channel');
+
         return $route;
     }
 }
