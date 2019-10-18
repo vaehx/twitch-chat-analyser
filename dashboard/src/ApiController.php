@@ -170,6 +170,18 @@ class ApiController implements ControllerProviderInterface
                 }
             }
 
+            // Top n emotes
+            $n = 10;
+            $stmt = $db->prepare("SELECT emote, occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0 ORDER BY occurrences DESC LIMIT $n");
+            $res = $stmt->execute(array(':channel' => $channel));
+
+            if ($res === false)
+                $app->abort(500, "Internal query error");
+
+            $result['top_emotes'] = [];
+            while ($row = $stmt->fetch())
+                $result['top_emotes'][] = ['emote' => $row['emote'], 'occurrences' => $row['occurrences']];
+
             return $app->json($result);
         })->bind('api_channel');
 
