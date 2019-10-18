@@ -92,6 +92,27 @@ class ApiController implements ControllerProviderInterface
         })->bind('api_user');
 
         /**
+         * Statistics about an emote used by a specific user
+         */
+        $route->get('/user/{username}/emote/{emote}', function($username, $emote) use($app, $db) {
+            $result = ['channels' => []];
+
+            $stmt = $db->prepare("SELECT c.channel, s.occurrences FROM ("
+                ."SELECT DISTINCT channel FROM channel_stats) AS c "
+                ."LEFT JOIN (SELECT channel, occurrences FROM user_emote_stats WHERE emote = :emote AND username = :username AND timestamp = 0) AS s "
+                ."ON c.channel = s.channel");
+            $res = $stmt->execute(array(':username' => $username, ':emote' => $emote));
+
+            if ($res === false)
+                $app->abort(500, "Internal query error");
+
+            while ($row = $stmt->fetch())
+                $result['channels'][$row['channel']] = ['occurrences' => $row['occurrences'] !== null ? $row['occurrences'] : 0];
+
+            return $app->json($result);
+        })->bind('api_user_emote');
+
+        /**
          * Statistics about all channels
          */
         $route->get('/channels', function() use($app, $db) {
