@@ -21,11 +21,11 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private static final Logger LOG = LoggerFactory.getLogger(EmoteExtractor.class);
 
     private static final String EMOTES_TABLE_NAME = "emotes";
+    private static final String CHANNELS_TABLE_NAME = "channels";
     private static final String TWITCH_API_CLIENT_ID = "ccxk8gzqpe0qd8t5lmwf45t1kplfi1";
     private static final long EMOTE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
     private static final int EMOTE_FETCH_TIMEOUT_MS = 20 * 1000;
     private transient long lastEmoteFetch;
-    private transient Set<String> knownChannels;
     private transient Set<String> emotes;
 
     private String jdbcUrl;
@@ -37,7 +37,6 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     @Override
     public void open(Configuration parameters) throws Exception {
         emotes = new HashSet<>();
-        knownChannels = new HashSet<>();
         reloadEmotes();
         lastEmoteFetch = System.currentTimeMillis();
     }
@@ -45,12 +44,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     @Override
     public void flatMap(Message message, Collector<Emote> collector) throws Exception {
         long time = System.currentTimeMillis();
-        if (!knownChannels.contains(message.channel)) {
-            LOG.info("Found new channel '" + message.channel + "'. Refreshing emotes...");
-            knownChannels.add(message.channel);
-            reloadEmotes();
-            lastEmoteFetch = time;
-        } else if (time - lastEmoteFetch > EMOTE_REFRESH_INTERVAL_MS) {
+        if (time - lastEmoteFetch > EMOTE_REFRESH_INTERVAL_MS) {
             reloadEmotes();
             lastEmoteFetch = time;
         }
@@ -85,13 +79,6 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         Connection conn = DriverManager.getConnection(jdbcUrl);
         Statement stmt = conn.createStatement();
 
-        // Fetch known channels from database (for initial load or manual table change)
-        ResultSet channelsResult = stmt.executeQuery(
-                "SELECT DISTINCT channel FROM " + EMOTES_TABLE_NAME + " WHERE channel IS NOT NULL");
-        while (channelsResult.next()) {
-            knownChannels.add(channelsResult.getString(1));
-        }
-
         // Check for new global/common twitch emotes
         try {
             Collection<String> emotes = fetchEmoteSets(Arrays.asList(
@@ -112,30 +99,44 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
             LOG.error("Could not fetch global BTTV emotes: " + ex.getMessage());
         }
 
+        // Fetch tracked channels from DB
+        ResultSet channelsResult = stmt.executeQuery("SELECT channel, emote_set FROM " + CHANNELS_TABLE_NAME);
+        List<Channel> channels = new ArrayList<>();
+        while (channelsResult.next()) {
+            channels.add(new Channel(channelsResult.getString("channel"), channelsResult.getInt("emote_set")));
+        }
+
         // Check for new channel emotes
-        for (String channel : knownChannels) {
+        for (Channel channel : channels) {
             // Twitch subscriber emotes
-            try {
-                Collection<String> emotes = fetchSubscriberEmotes(channel);
-                insertNewEmotes(stmt, emotes, 0, channel);
+            /*try {
+                Collection<String> emotes = fetchSubscriberEmotes(channel.name);
+                insertNewEmotes(stmt, emotes, 0, channel.name);
             } catch (Exception ex) {
-                LOG.error("Could not fetch subscriber emotes for channel '" + channel + "': " + ex.getMessage());
+                LOG.error("Could not fetch subscriber emotes for channel '" + channel.name + "': " + ex.getMessage());
+            }*/
+            LOG.info("Fetching subscriber emotes for channel '{}' (emoteSet: {}) ...", channel.name, channel.emoteSet);
+            try {
+                Collection<String> emotes = fetchEmoteSets(Arrays.asList(channel.emoteSet));
+                insertNewEmotes(stmt, emotes, 0, channel.name);
+            } catch (Exception ex) {
+                LOG.error("Could not fetch subscriber emotes for channel '" + channel.name + "': " + ex.getMessage());
             }
 
             // BTTV channel emotes
             try {
-                Collection<String> emotes = fetchBTTVChannelEmotes(channel);
-                insertNewEmotes(stmt, emotes, 2, channel);
+                Collection<String> emotes = fetchBTTVChannelEmotes(channel.name);
+                insertNewEmotes(stmt, emotes, 2, channel.name);
             } catch (Exception ex) {
-                LOG.error("Could not fetch BTTV emotes for channel '" + channel + "': " + ex.getMessage());
+                LOG.error("Could not fetch BTTV emotes for channel '" + channel.name + "': " + ex.getMessage());
             }
 
             // FFZ channel emotes
             try {
-                Collection<String> emotes = fetchFFZChannelEmotes(channel);
-                insertNewEmotes(stmt, emotes, 3, channel);
+                Collection<String> emotes = fetchFFZChannelEmotes(channel.name);
+                insertNewEmotes(stmt, emotes, 3, channel.name);
             } catch (Exception ex) {
-                LOG.error("Could not fetch FFZ emotes for channel '" + channel + "': " + ex.getMessage());
+                LOG.error("Could not fetch FFZ emotes for channel '" + channel.name + "': " + ex.getMessage());
             }
         }
 
@@ -150,7 +151,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         long duration = System.currentTimeMillis() - startTime;
 
         LOG.info("Updated emote table in {} ms. Now using {} emotes in {} known channels",
-                duration, emotes.size(), knownChannels.size());
+                duration, emotes.size(), channels.size());
 
         conn.close();
     }
@@ -204,6 +205,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         return emotes;
     }
 
+    @Deprecated
     private static Collection<String> fetchSubscriberEmotes(String channel) throws Exception {
         URL url = new URL("https://api.twitch.tv/api/channels/" + channel + "/product" +
                 "?client_id=" + TWITCH_API_CLIENT_ID);
@@ -338,5 +340,11 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         if (emoteCountResult.getInt(1) == 0) {
             stmt.execute("INSERT INTO emotes(emote, type) VALUES('Kappa', 1), ('PogChamp', 1), ('DansGame', 1);");
         }
+
+
+        // Channels table
+        stmt.execute("CREATE TABLE IF NOT EXISTS " + CHANNELS_TABLE_NAME + "(" +
+                "channel VARCHAR NOT NULL," +
+                "emote_set INT NOT NULL)");
     }
 }
