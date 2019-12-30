@@ -15,6 +15,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.*;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
@@ -182,9 +183,11 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
             emoteSetsParam.append(emoteSets.get(i));
         }
 
-        URL url = new URL("https://api.twitch.tv/kraken/chat/emoticon_images?emotesets=" + emoteSetsParam.toString() +
-                "&client_id=" + TWITCH_API_CLIENT_ID);
-        String response = getJSONHttp(url);
+        URL url = new URL("https://api.twitch.tv/kraken/chat/emoticon_images?emotesets=" + emoteSetsParam.toString());
+        String response = getJSONHttp(url, new HashMap<String, String>() {{
+            put("Client-ID", TWITCH_API_CLIENT_ID);
+            put("Accept", "application/vnd.twitchtv.v5+json");
+        }});
 
         JSONObject responseObj = new JSONObject(response);
         JSONObject emoticonSets = responseObj.getJSONObject("emoticon_sets");
@@ -292,12 +295,15 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         return emotes;
     }
 
-    private static String getJSONHttp(URL url) throws Exception {
+    private static String getJSONHttp(URL url, Map<String, String> additionalHeaders) throws Exception {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setConnectTimeout(EMOTE_FETCH_TIMEOUT_MS);
         con.setReadTimeout(EMOTE_FETCH_TIMEOUT_MS);
         con.setRequestMethod("GET");
         con.setRequestProperty("Content-Type", "application/json");
+
+        if (additionalHeaders != null)
+            additionalHeaders.forEach((key, value) -> con.setRequestProperty(key, value));
 
         int status = con.getResponseCode();
         if (status == 404) {
@@ -317,6 +323,10 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         con.disconnect();
 
         return response.toString();
+    }
+
+    private static String getJSONHttp(URL url) throws Exception {
+        return getJSONHttp(url, null);
     }
 
     public void prepareTables(Statement stmt) throws SQLException {
