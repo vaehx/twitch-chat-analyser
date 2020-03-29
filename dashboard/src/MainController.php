@@ -230,6 +230,7 @@ class MainController implements ControllerProviderInterface
             $stmt = $db->prepare("SELECT emotes.emote, type, occurrences FROM emotes
                                 LEFT JOIN (SELECT channel, emote, occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0) es
                                     ON es.emote=emotes.emote
+                                WHERE occurrences > 0
                                 ORDER BY es.occurrences DESC");
 
             $res = $stmt->execute(array(':channel' => $channel));
