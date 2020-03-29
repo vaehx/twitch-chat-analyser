@@ -43,8 +43,7 @@ class MainController implements ControllerProviderInterface
             $channels = $stmt->fetchAll();
 
             // Get message graph data for each channel
-            foreach ($channels as $k => &$channel)
-            {
+            foreach ($channels as $k => &$channel) {
                 // Get window start total count
                 $stmt = $db->prepare("SELECT sum(messages) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
                                 . " WHERE channel = :channel AND timestamp > 0 AND timestamp < :windowStartTime");
@@ -67,8 +66,9 @@ class MainController implements ControllerProviderInterface
                 if ($res === false)
                     $app->abort(500, "Could not query for graph data for channel '".$channel['name']."': " . self::getDBErrorMessage($db));
 
-                $samples = self::resampleTimeSeries($stmt->fetchAll(), 'messages', 100, $windowStartTime, $windowEndTime);
+                $samples = self::checkEmptyTimeseries($stmt->fetchAll(), 'messages', $windowStartTime, $windowEndTime);
                 $samples = self::ratesToCumulativeSums($samples, 'messages', $channel['windowStartTotalMessages']);
+                $samples = self::resampleTimeSeries($samples, 'messages', 100, $windowStartTime, $windowEndTime);
 
                 $channel['totalMessageCountSamples'] = $samples;
             }
@@ -90,6 +90,14 @@ class MainController implements ControllerProviderInterface
             $timer = new Timer();
             $timer->start();
 
+            if ($request->query->has('windowStartText') && $request->query->has('windowEndText')) {
+                $windowStartTime = self::htmlInputTextToTimestamp($request->query->get('windowStartText'));
+                $windowEndTime = self::htmlInputTextToTimestamp($request->query->get('windowEndText'));
+            } else {
+                $windowEndTime = self::getCurrentTimestamp();
+                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'week', 'millis');
+            }
+
             // Get channel info
             $stmt = $db->prepare("SELECT * FROM channel_stats WHERE channel = :channel AND timestamp = 0");
             $stmt->execute(array(':channel' => $channel));
@@ -98,63 +106,67 @@ class MainController implements ControllerProviderInterface
             $channelInfo = $stmt->fetch();
             $timer->mark('get_channel_info');
 
-            // Determine visualized window bounds
-            $shownPeriodValue = $request->query->get('shownPeriodValue', 24);
-            $shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
-            if ($shownPeriodValue <= 0)
-                $shownPeriodValue = 1;
-
-            $windowEndTime = self::getCurrentTimestamp();
-            $windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
-            $timer->mark();
-
             // Get emote statistics
             $emoteStats = [];
+            $emoteStatsWindowStartOccurrences = [];
             $visualizedEmotes = ['moon2MLEM', 'moon2S', 'moon2A', 'moon2N', 'PogChamp'];
             $minEmoteOccurrences = PHP_INT_MAX;
-            foreach ($visualizedEmotes as $emote)
-            {
-                $stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE." "
+            foreach ($visualizedEmotes as $emote) {
+                // Get window start total count
+                $stmt = $db->prepare("SELECT sum(occurrences) AS window_start_total_occurrences FROM ".self::EMOTE_STATS_TABLE
+                                . " WHERE channel = :channel AND emote = :emote AND timestamp > 0 AND timestamp < :windowStartTime");
+                $res = $stmt->execute(array(
+                    ':channel' => $channel,
+                    ':emote' => $emote,
+                    ':windowStartTime' => $windowStartTime));
+
+                $emoteStatsWindowStartOccurrences[$emote] = $stmt->fetch()['window_start_total_occurrences'];
+
+                // Get samples
+                $stmt = $db->prepare("SELECT timestamp, occurrences FROM ".self::EMOTE_STATS_TABLE." "
                                 . " WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                                 . " ORDER BY timestamp ASC");
-
                 $res = $stmt->execute(array(
                     ':channel' => $channel,
                     ':emote' => $emote,
                     ':windowStartTime' => $windowStartTime,
                     ':windowEndTime' => $windowEndTime));
 
-                if ($res === false)
-                    continue;
+                $samples = self::checkEmptyTimeseries($stmt->fetchAll(), 'occurrences', $windowStartTime, $windowEndTime);
+                $samples = self::ratesToCumulativeSums($samples, 'occurrences', $emoteStatsWindowStartOccurrences[$emote]);
+                $samples = self::resampleTimeSeries($samples, 'occurrences', 100, $windowStartTime, $windowEndTime);
 
-                if ($stmt->rowCount() > 0)
-                {
-                    $emoteStats[$emote] = self::resampleTimeSeries($stmt->fetchAll(), 'total_occurrences', 100, $windowStartTime, $windowEndTime);
-                }
-                else
-                {
-                    $emoteStats[$emote] = [
-                        ['timestamp' => $windowStartTime, 'total_occurrences' => 0],
-                        ['timestamp' => $windowEndTime, 'total_occurrences' => 0]
-                    ];
-                }
-
-                $firstOccurrences = $emoteStats[$emote][0]['total_occurrences'];
-                if ($firstOccurrences < $minEmoteOccurrences)
-                    $minEmoteOccurrences = $firstOccurrences;
+                $emoteStats[$emote] = $samples;
             }
             $timer->mark('get_emote_statistics');
 
-            // Get total message count
-            $stmt = $db->prepare("SELECT timestamp, total_messages FROM channel_stats"
+            // Get total message count in this channel
+            $stmt = $db->prepare("SELECT sum(messages) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
+                            . " WHERE channel = :channel AND timestamp > 0 AND timestamp < :windowStartTime");
+            $res = $stmt->execute(array(
+                ':channel' => $channel,
+                ':windowStartTime' => $windowStartTime));
+            if ($res === false)
+                $app->abort(500, "Could not query window start channel total messages: " . self::getStmtErrorMessage($stmt));
+
+            $channelWindowStartTotalMessages = $stmt->fetch()['window_start_total_messages'];
+
+            $stmt = $db->prepare("SELECT timestamp, messages FROM channel_stats"
                             . " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " ORDER BY timestamp ASC");
-
-            $res = $stmt->execute(array(':channel' => $channel, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+            $res = $stmt->execute(array(
+                ':channel' => $channel,
+                ':windowStartTime' => $windowStartTime,
+                ':windowEndTime' => $windowEndTime));
             if ($res === false)
-                $app->abort(500, "Could not query total channel message count: " . self::getDBErrorMessage($db));
+                $app->abort(500, "Could not query channel messages graph timeseries: " . self::getStmtErrorMessage($stmt));
 
-            $channelStats = self::resampleTimeSeries($stmt->fetchAll(), 'total_messages', self::DEFAULT_SERIES_RESOLUTION, $windowStartTime, $windowEndTime);
+            $samples = self::checkEmptyTimeseries($stmt->fetchAll(), 'messages', $windowStartTime, $windowEndTime);
+            $samples = self::ratesToCumulativeSums($samples, 'messages', $channelWindowStartTotalMessages);
+            $samples = self::resampleTimeSeries($samples, 'messages', self::DEFAULT_SERIES_RESOLUTION, $windowStartTime, $windowEndTime);
+
+            $channelStats = $samples;
+
             $timer->mark('get_total_message_count');
 
             // Chatters active in selected time window
@@ -162,10 +174,12 @@ class MainController implements ControllerProviderInterface
                             . " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime AND messages IS NOT NULL"
                             . " GROUP BY channel, username"
                             . " ORDER BY SUM(messages) DESC");
-
-            $res = $stmt->execute(array(':channel' => $channel, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
+            $res = $stmt->execute(array(
+                ':channel' => $channel,
+                ':windowStartTime' => $windowStartTime,
+                ':windowEndTime' => $windowEndTime));
             if ($res === false)
-                $app->abort(500, "Could not query active chatters in time window: " . self::getDBErrorMessage($db));
+                $app->abort(500, "Could not query active chatters in time window: " . self::getStmtErrorMessage($stmt));
 
             $recentChatters = [];
             $shownRecentChatters = 25;
@@ -194,11 +208,13 @@ class MainController implements ControllerProviderInterface
             return $app['twig']->render('channel.twig', [
                 'channel' => $channel,
                 'timer' => $timer,
-                'shownPeriodValue' => $shownPeriodValue,
-                'shownPeriodUnit' => $shownPeriodUnit,
+                'windowStartTime' => $windowStartTime,
+                'windowEndTime' => $windowEndTime,
+                'windowStartText' => self::timestampToHTMLInputText($windowStartTime),
+                'windowEndText' => self::timestampToHTMLInputText($windowEndTime),
                 'channelStats' => $channelStats,
                 'emoteStats' => $emoteStats,
-                'emoteStatsMinOccurrences' => $minEmoteOccurrences,
+                'emoteStatsWindowStartOccurrences' => $minEmoteOccurrences,
                 'recentChatters' => $recentChatters,
                 'recentChattersMore' => $recentChattersMore,
                 'recentEmotes' => $recentEmotes,
@@ -211,21 +227,21 @@ class MainController implements ControllerProviderInterface
          */
         $route->get('/channel/{channel}/emotes', function(Request $request, $channel) use($app, $db) {
             // Real occurrences (including all chatters)
-            $stmt = $db->prepare("SELECT emotes.emote, type, total_occurrences FROM emotes
-                                LEFT JOIN (SELECT channel, emote, total_occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0) es
+            $stmt = $db->prepare("SELECT emotes.emote, type, occurrences FROM emotes
+                                LEFT JOIN (SELECT channel, emote, occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0) es
                                     ON es.emote=emotes.emote
-                                ORDER BY es.total_occurrences DESC");
+                                ORDER BY es.occurrences DESC");
 
             $res = $stmt->execute(array(':channel' => $channel));
             if ($res === false)
-                $app->abort(500, "Query error: " . self::getDBErrorMessage($db));
+                $app->abort(500, "Query error: " . self::getStmtErrorMessage($stmt));
 
             $emotes = [];
             while ($row = $stmt->fetch())
             {
                 $emotes[$row['emote']] = [
                     'type' => $row['type'],
-                    'real_occurrences' => $row['total_occurrences'],
+                    'real_occurrences' => $row['occurrences'],
                     'occurrences' => 0,
                     'standardDeviation' => null
                 ];
@@ -277,6 +293,8 @@ class MainController implements ControllerProviderInterface
          * User Leaderboard for an emote
          */
         $route->get('/channel/{channel}/emote/{emote}', function(Request $request, $channel, $emote) use($app, $db) {
+            die("Disabled");
+            
             // Determine visualized window bounds
             $shownPeriodValue = $request->query->get('shownPeriodValue', 0);
             $shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
@@ -353,7 +371,8 @@ class MainController implements ControllerProviderInterface
                 'totalOccurrences' => $totalOccurences,
                 'totalOccurrences2' => $stats[count($stats) - 1]['total_occurrences'],
                 'minOccurrences' => $minOccurrences]);
-        })->bind('emote');
+        })->bind('emote')
+          ->assert('emote', '.+');
 
         /**
          * Per-user stats for an emote
@@ -408,9 +427,9 @@ class MainController implements ControllerProviderInterface
             $excluded_users = ["nightbot"];
             $max_rank = $request->query->get('max', 100);
 
-            $stmt = $db->prepare("SELECT username, total_messages FROM ".self::USER_STATS_TABLE
+            $stmt = $db->prepare("SELECT username, messages FROM ".self::USER_STATS_TABLE
                             . " WHERE channel = :channel AND timestamp = 0"
-                            . " ORDER BY total_messages DESC LIMIT :limit");
+                            . " ORDER BY messages DESC LIMIT :limit");
 
             $res = $stmt->execute(array(':channel' => $channel, ':limit' => $max_rank + count(self::EXCLUDED_CHATTERS)));
             if ($res === false)
@@ -658,6 +677,22 @@ class MainController implements ControllerProviderInterface
         }
 
         return $timeseries;
+    }
+
+    /**
+     * Checks whether the given timeseries is empty or not.
+     * If it is, a "minimal" time series with two samples is returned: One with startTime and one with endTime,
+     * both having the same constant value of startAndEndValue
+     */
+    static function checkEmptyTimeseries($timeseries, $valueFieldName, $startTime, $endTime, $defaultStartAndEndValue=0) {
+        if (count($timeseries) > 0) {
+            return $timeseries;
+        } else {
+            return [
+                [ 'timestamp' => $startTime, $valueFieldName => $defaultStartAndEndValue ],
+                [ 'timestamp' => $endTime, $valueFieldName => $defaultStartAndEndValue ]
+            ];
+        }
     }
 
     static function getDBErrorMessage($db)

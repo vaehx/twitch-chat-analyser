@@ -58,10 +58,10 @@
 			'data': [
 				['Time', 'Occurrences'],
 				{% for stat in emoteStat %}
-				[new Date({{ stat.timestamp }}), {{ stat.total_occurrences }}],
+				[new Date({{ stat.timestamp }}), {{ stat.occurrences }}],
 				{% endfor %}
 			],
-			'minOccurrences': {{ emoteStat[0].total_occurrences }}
+			'minOccurrences': {{ emoteStat[0].occurrences }}
 		};
 		{% endfor %}
 		return chartData;
@@ -119,7 +119,7 @@
 		var chartData = [
 			[ 'Time', 'Messages' ]
 			{%- for stat in channelStats -%}
-			,[new Date({{ stat.timestamp }}), {{ stat.total_messages }}]
+			,[new Date({{ stat.timestamp }}), {{ stat.messages }}]
 			{%- endfor -%}
 		];
 		var data = google.visualization.arrayToDataTable(chartData);
@@ -134,7 +134,7 @@
 
 <div class="row">
 	<div class="col-md-6">
-		<h2>Top recent chatters</h2>
+		<h2>Top chatters in window</h2>
 		<p><a href="{{ path('users', { channel: channel }) }}">User Leaderboard</a></p>
 
 		<table class="table table-dark table-striped table-hover">
@@ -157,7 +157,7 @@
 	</div>
 
 	<div class="col-md-6">
-		<h2>Top recent emotes</h2>
+		<h2>Top emotes in window</h2>
 		<p><a href="{{ path('emotes', { channel: channel }) }}">Emotes Leaderboard</a></p>
 
 		<table class="table table-dark table-striped table-hover">
