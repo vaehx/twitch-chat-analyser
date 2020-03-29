@@ -5,6 +5,7 @@ namespace Dashboard;
 use Silex\Application as SilexApplication;
 use Silex\Api\ControllerProviderInterface;
 use Symfony\Component\HttpFoundation\Request;
+use \DateTime;
 
 class MainController implements ControllerProviderInterface
 {
@@ -27,39 +28,58 @@ class MainController implements ControllerProviderInterface
          * Channel overview
          */
         $route->get('/', function(Request $request) use($app, $db) {
-            // Determine visualized window bounds
-            $shownPeriodValue = $request->query->get('shownPeriodValue', 24);
-            $shownPeriodUnit = $request->query->get('shownPeriodUnit', 'hours');
-            if ($shownPeriodValue <= 0)
-                $shownPeriodValue = 1;
-
-            $windowEndTime = self::getCurrentTimestamp();
-            $windowStartTime = $windowEndTime - $shownPeriodValue * self::getTimeUnitSecondsMultiplier($shownPeriodUnit) * 1000;
+            if ($request->query->has('windowStartText') && $request->query->has('windowEndText')) {
+                $windowStartTime = self::htmlInputTextToTimestamp($request->query->get('windowStartText'));
+                $windowEndTime = self::htmlInputTextToTimestamp($request->query->get('windowEndText'));
+            } else {
+                $windowEndTime = self::getCurrentTimestamp();
+                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'week', 'millis');
+            }
 
             // Get channel meta
-            $stmt = $db->query("SELECT DISTINCT channel AS name, total_messages FROM channel_stats WHERE timestamp = 0 ORDER BY total_messages DESC");
+            $stmt = $db->query("SELECT DISTINCT channel AS name, messages FROM ".self::CHANNEL_STATS_TABLE." WHERE timestamp = 0");
             if ($stmt === false)
                 $app->abort(500, "Query error: " . $db->errorInfo()[2]);
             $channels = $stmt->fetchAll();
 
-            // Get total message stats for each channel
+            // Get message graph data for each channel
             foreach ($channels as $k => &$channel)
             {
-                $channelName = $channel['name'];
-                $stmt = $db->query("SELECT timestamp, total_messages FROM channel_stats"
-                                . " WHERE channel='$channelName' AND timestamp >= $windowStartTime AND timestamp <= $windowEndTime"
+                // Get window start total count
+                $stmt = $db->prepare("SELECT sum(messages) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
+                                . " WHERE channel = :channel AND timestamp > 0 AND timestamp < :windowStartTime");
+                $res = $stmt->execute(array(
+                    ':channel' => $channel['name'],
+                    ':windowStartTime' => $windowStartTime));
+                if ($res === false)
+                    $app->abort(500, "Could not query for window start total count for channel '".$channel['name'].": " . self::getStmtErrorMessage($stmt));
+
+                $channel['windowStartTotalMessages'] = $stmt->fetch()['window_start_total_messages'];
+
+                // Get graph data within window
+                $stmt = $db->prepare("SELECT timestamp, messages FROM ".self::CHANNEL_STATS_TABLE
+                                . " WHERE channel = :channel AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                                 . " ORDER BY timestamp ASC");
-                $channel['stats'] = self::resampleTimeSeries($stmt->fetchAll(), 'total_messages', 100, $windowStartTime, $windowEndTime);
-                $channel['minMessages'] = $channel['stats'][0]['total_messages'];
+                $res = $stmt->execute(array(
+                    ':channel' => $channel['name'],
+                    ':windowStartTime' => $windowStartTime,
+                    ':windowEndTime' => $windowEndTime));
+                if ($res === false)
+                    $app->abort(500, "Could not query for graph data for channel '".$channel['name']."': " . self::getDBErrorMessage($db));
+
+                $samples = self::resampleTimeSeries($stmt->fetchAll(), 'messages', 100, $windowStartTime, $windowEndTime);
+                $samples = self::ratesToCumulativeSums($samples, 'messages', $channel['windowStartTotalMessages']);
+
+                $channel['totalMessageCountSamples'] = $samples;
             }
             unset($channel);
 
             return $app['twig']->render('index.twig', [
                 'channels' => $channels,
-                'shownPeriodValue' => $shownPeriodValue,
-                'shownPeriodUnit' => $shownPeriodUnit,
-                'windowStart' => $windowStartTime,
-                'windowEnd' => $windowEndTime
+                'windowStartTime' => $windowStartTime,
+                'windowEndTime' => $windowEndTime,
+                'windowStartText' => self::timestampToHTMLInputText($windowStartTime),
+                'windowEndText' => self::timestampToHTMLInputText($windowEndTime),
             ]);
         })->bind('index');
 
@@ -524,6 +544,8 @@ class MainController implements ControllerProviderInterface
     static function getTimeUnitSecondsMultiplier($unit)
     {
         $units = [
+            'millis' => 0.001,
+            'seconds' => 1,
             'minutes' => 60,
             'hours' => 60 * 60,
             'days' => 24 * 60 * 60,
@@ -628,8 +650,43 @@ class MainController implements ControllerProviderInterface
         return $result;
     }
 
+    static function ratesToCumulativeSums($timeseries, $fieldName, $startValue=0)
+    {
+        for ($i = 0, $val = $startValue; $i < count($timeseries); ++$i) {
+            $val += $timeseries[$i][$fieldName];
+            $timeseries[$i][$fieldName] = $val;
+        }
+
+        return $timeseries;
+    }
+
     static function getDBErrorMessage($db)
     {
         return $db->errorInfo()[2];
+    }
+
+    static function getStmtErrorMessage($stmt)
+    {
+        return $stmt->errorInfo()[2];
+    }
+
+
+    const HTML_INPUT_DATETIME_FORMAT = "Y-m-d\TH:i";
+
+    // Converts the given timestamp (in milliseconds) to the string format that can be used as a value for
+    // the HTML datetime-local date-time picker input field
+    static function timestampToHTMLInputText($timestamp)
+    {
+        $date = new DateTime();
+        $date->setTimestamp(round($timestamp * 0.001));
+        return $date->format(self::HTML_INPUT_DATETIME_FORMAT);
+    }
+
+    // Parses the string value of the HTML datetime-local date-time picker input field and returns
+    // the matching timestamp in milliseconds.
+    static function htmlInputTextToTimestamp($text)
+    {
+        $date = DateTime::createFromFormat(self::HTML_INPUT_DATETIME_FORMAT, $text);
+        return $date->getTimestamp() * 1000;
     }
 }

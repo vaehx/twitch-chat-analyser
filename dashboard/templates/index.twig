@@ -36,7 +36,8 @@
 
 		var data = google.visualization.arrayToDataTable(channelStats);
 		var chart = new google.visualization.LineChart(channelDiv.find('.chart')[0]);
-		var emoteChartOptions = {
+		var emoteChartOptions = {...chartOptions};
+		$.extend(true, emoteChartOptions, {
 			vAxis: {
 				gridlines: {
 					count: 5
@@ -46,14 +47,18 @@
 				},
 				viewWindowMode: "explicit"
 			},
+			hAxis: {
+				format: 'dd/MM/yyyy HH:mm',
+				slantedText: true,
+				slantedTextAngle: 45,
+			},
 			chartArea: {
 				left: 80,
 				top: 0,
 				width: '85%',
-				height: '90%'
+				height: '60%'
 			}
-		};
-		$.extend(true, emoteChartOptions, chartOptions);
+		});
 		chart.draw(data, emoteChartOptions);
 	}
 
@@ -66,11 +71,11 @@
 		channelPath = "{{ path('channel', { channel: channel.name }) }}";
 		channelStats = [
 			[ 'Time', 'Messages' ]
-			{% for stat in channel.stats %}
-			,[new Date({{ stat.timestamp }}), {{ stat.total_messages }}]
+			{% for stat in channel.totalMessageCountSamples %}
+			,[new Date({{ stat.timestamp }}), {{ stat.messages }}]
 			{% endfor %}
 		];
-		drawTotalsChart(channelName, channelStats, {{ channel.minMessages }}, channelPath);
+		drawTotalsChart(channelName, channelStats, {{ channel.windowStartTotalMessages }}, channelPath);
 		{% endfor %}
 	}
 </script>
