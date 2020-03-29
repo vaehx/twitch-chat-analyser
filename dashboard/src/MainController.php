@@ -33,7 +33,7 @@ class MainController implements ControllerProviderInterface
                 $windowEndTime = self::htmlInputTextToTimestamp($request->query->get('windowEndText'));
             } else {
                 $windowEndTime = self::getCurrentTimestamp();
-                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'week', 'millis');
+                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'weeks', 'millis');
             }
 
             // Get channel meta
@@ -95,7 +95,7 @@ class MainController implements ControllerProviderInterface
                 $windowEndTime = self::htmlInputTextToTimestamp($request->query->get('windowEndText'));
             } else {
                 $windowEndTime = self::getCurrentTimestamp();
-                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'week', 'millis');
+                $windowStartTime = $windowEndTime - self::convertTimePeriod(1, 'weeks', 'millis');
             }
 
             // Get channel info
