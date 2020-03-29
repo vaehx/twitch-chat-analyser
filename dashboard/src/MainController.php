@@ -45,7 +45,7 @@ class MainController implements ControllerProviderInterface
             // Get message graph data for each channel
             foreach ($channels as $k => &$channel) {
                 // Get window start total count
-                $stmt = $db->prepare("SELECT sum(messages) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
+                $stmt = $db->prepare("SELECT COALESCE(sum(messages), 0) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
                                 . " WHERE channel = :channel AND timestamp > 0 AND timestamp < :windowStartTime");
                 $res = $stmt->execute(array(
                     ':channel' => $channel['name'],
@@ -113,7 +113,7 @@ class MainController implements ControllerProviderInterface
             $minEmoteOccurrences = PHP_INT_MAX;
             foreach ($visualizedEmotes as $emote) {
                 // Get window start total count
-                $stmt = $db->prepare("SELECT sum(occurrences) AS window_start_total_occurrences FROM ".self::EMOTE_STATS_TABLE
+                $stmt = $db->prepare("SELECT COALESCE(sum(occurrences), 0) AS window_start_total_occurrences FROM ".self::EMOTE_STATS_TABLE
                                 . " WHERE channel = :channel AND emote = :emote AND timestamp > 0 AND timestamp < :windowStartTime");
                 $res = $stmt->execute(array(
                     ':channel' => $channel,
@@ -141,7 +141,7 @@ class MainController implements ControllerProviderInterface
             $timer->mark('get_emote_statistics');
 
             // Get total message count in this channel
-            $stmt = $db->prepare("SELECT sum(messages) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
+            $stmt = $db->prepare("SELECT COALESCE(sum(messages), 0) AS window_start_total_messages FROM ".self::CHANNEL_STATS_TABLE
                             . " WHERE channel = :channel AND timestamp > 0 AND timestamp < :windowStartTime");
             $res = $stmt->execute(array(
                 ':channel' => $channel,
