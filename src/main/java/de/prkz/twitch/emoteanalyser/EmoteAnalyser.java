@@ -3,6 +3,7 @@ package de.prkz.twitch.emoteanalyser;
 import de.prkz.twitch.emoteanalyser.channel.ChannelStatsAggregation;
 import de.prkz.twitch.emoteanalyser.emote.*;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
+import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
 import org.apache.flink.runtime.state.StateBackend;
@@ -10,7 +11,6 @@ import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.api.functions.timestamps.AscendingTimestampExtractor;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.Properties;
 
 public class EmoteAnalyser {
@@ -75,7 +76,9 @@ public class EmoteAnalyser {
                 .addSource(consumer)
                 .uid("KafkaSource_0")
                 .name("KafkaSource")
-                .assignTimestampsAndWatermarks(new Message.TimestampExtractor(maxOutOfOrdernessMs))
+                .assignTimestampsAndWatermarks(WatermarkStrategy
+                        .<Message>forBoundedOutOfOrderness(Duration.ofMillis(maxOutOfOrdernessMs))
+                        .withTimestampAssigner((message, recordTs) -> message.timestamp))
                 .uid("MessageTimestamps_0");
 
         // Per-Channel statistics
@@ -97,12 +100,9 @@ public class EmoteAnalyser {
         DataStream<Emote> emotes = messages
                 .flatMap(emoteExtractor)
                 .name("ExtractEmotes")
-                .assignTimestampsAndWatermarks(new AscendingTimestampExtractor<Emote>() {
-                    @Override
-                    public long extractAscendingTimestamp(Emote emote) {
-                        return emote.timestamp;
-                    }
-                })
+                .assignTimestampsAndWatermarks(WatermarkStrategy
+                        .<Emote>forMonotonousTimestamps()
+                        .withTimestampAssigner((emote, recordTs) -> emote.timestamp))
                 .uid("EmoteTimestamps_0");
 
         // Per-Emote statistics

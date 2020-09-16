@@ -1,0 +1,52 @@
+plugins {
+	id 'java-library'
+}
+
+group = 'de.prkz.twitch'
+version = '1.0-SNAPSHOT'
+description = 'Twitch Chat Analyser'
+
+sourceCompatibility = '1.8'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+project.ext.mainClassName = 'de.prkz.twitch.emoteanalyser.EmoteAnalyser'
+
+def flinkVersion = '1.11.1'
+def flinkScalaVersion = '2.12'
+
+if (!hasProperty('mainClass')) {
+	ext.mainClass = "$mainClassName"
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation "org.apache.flink:flink-connector-kafka_${flinkScalaVersion}:${flinkVersion}"
+	implementation "org.apache.flink:flink-metrics-dropwizard:${flinkVersion}"
+	implementation "org.pircbotx:pircbotx:2.1"
+	implementation 'org.postgresql:postgresql:42.2.14'
+	implementation 'org.json:json:20180130'
+
+	compileOnly "org.apache.flink:flink-java:${flinkVersion}"
+	compileOnly "org.apache.flink:flink-core:${flinkVersion}"
+	compileOnly "org.apache.flink:flink-streaming-java_${flinkScalaVersion}:${flinkVersion}"
+	compileOnly "org.apache.flink:flink-clients_${flinkScalaVersion}:${flinkVersion}"
+}
+
+jar {
+	manifest {
+		attributes(
+				//'Class-Path': configurations.implementation.collect { it.getName() }.join(' '),
+				'Main-Class': "$mainClassName",
+				'Implementation-Title': project.name,
+				'Implementation-Version': project.version
+		)
+	}
+
+	from {
+		configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
+		//configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	}
+}

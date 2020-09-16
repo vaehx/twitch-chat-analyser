@@ -1,8 +1,7 @@
 package de.prkz.twitch.emoteanalyser;
 
+import org.apache.flink.api.common.eventtime.TimestampAssigner;
 import org.apache.flink.api.java.functions.KeySelector;
-import org.apache.flink.streaming.api.functions.timestamps.BoundedOutOfOrdernessTimestampExtractor;
-import org.apache.flink.streaming.api.windowing.time.Time;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -35,18 +34,6 @@ public class Message {
         @Override
         public String getKey(Message message) throws Exception {
             return message.username;
-        }
-    }
-
-    public static class TimestampExtractor extends BoundedOutOfOrdernessTimestampExtractor<Message> {
-
-        public TimestampExtractor(long maxOutOfOrdernessMs) {
-            super(Time.milliseconds(maxOutOfOrdernessMs));
-        }
-
-        @Override
-        public long extractTimestamp(Message message) {
-            return message.timestamp;
         }
     }
 }

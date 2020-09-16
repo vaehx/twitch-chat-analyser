@@ -1,3 +1,5 @@
+.gradle/*
+.vscode/*
 target/*
 *.code-workspace
 .idea/*
