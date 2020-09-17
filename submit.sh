@@ -3,7 +3,7 @@
 PARALLELISM=1
 JDBC_URL="jdbc:postgresql://timescaledb:5432/twitch?user=postgres&password=password" 
 KAFKA_BOOTSTRAP_SERVER="kafka:9092"
-KAFKA_TOPIC="twitch_chat_analyzer"
+KAFKA_TOPIC="TwitchMessages"
 AGGREGATION_INTERVAL_MS=900000 # 15 min, event-time
 TRIGGER_INTERVAL_MS=5000 # 5 sec, processing-time
 MAX_OUT_OF_ORDERNESS_MS=10000 # 10 sec, event-time
