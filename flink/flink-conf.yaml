@@ -2,12 +2,12 @@ web.port: 8081
 
 # This will be replaced by the flink docker entrypoint script
 jobmanager.rpc.address: localhost
+jobmanager.rpc.port: 6123
 
 # This will be replaced by the flink docker entrypoint script
 taskmanager.numberOfTaskSlots: 1
 
-taskmanager.heap.size: 512mb
-taskmanager.network.memory.fraction: 0.03
-taskmanager.network.memory.min: 32mb
-
-jobmanager.heap.size: 256mb
+jobmanager.memory.process.size: 1600m
+taskmanager.memory.process.size: 1728m
+taskmanager.memory.network.min: 32mb
+taskmanager.memory.network.fraction: 0.03

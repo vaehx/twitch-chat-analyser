@@ -11,6 +11,7 @@ import org.pircbotx.hooks.events.ConnectAttemptFailedEvent;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.impl.StaticLoggerBinder;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +26,12 @@ public class Bot extends ListenerAdapter {
     private KafkaProducer<Long, Message> producer;
 
     public static void main(String args[]) throws Exception {
+        System.out.println(LOG.getName());
+
+        final StaticLoggerBinder binder = StaticLoggerBinder.getSingleton();
+        System.out.println(binder.getLoggerFactory());
+        System.out.println(binder.getLoggerFactoryClassStr());
+
         if (args.length <= 1) {
             System.err.println("Requires arguments: <kafka-bootstrap-server> <channel...>");
             System.exit(1);

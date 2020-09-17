@@ -37,16 +37,17 @@ public class EmoteAnalyser {
 
         // Parse arguments
         if (args.length < 5) {
-            System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <aggregation-interval-ms> " +
+            System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <kafka-topic> <aggregation-interval-ms> " +
                     "<trigger-interval-ms> <max-out-of-orderness-ms>");
             System.exit(1);
         }
 
         String jdbcUrl = args[0];
         String kafkaBootstrapServer = args[1];
-        long aggregationIntervalMs = Long.parseLong(args[2]);
-        long triggerIntervalMs = Long.parseLong(args[3]);
-        long maxOutOfOrdernessMs = Long.parseLong(args[4]);
+        String kafkaTopic = args[2];
+        long aggregationIntervalMs = Long.parseLong(args[3]);
+        long triggerIntervalMs = Long.parseLong(args[4]);
+        long maxOutOfOrdernessMs = Long.parseLong(args[5]);
 
         // Prepare database
         Connection conn = DriverManager.getConnection(jdbcUrl);
@@ -67,7 +68,7 @@ public class EmoteAnalyser {
         // Pull messages from Kafka
         Properties kafkaProps = new Properties();
         kafkaProps.setProperty("bootstrap.servers", kafkaBootstrapServer);
-        kafkaProps.setProperty("group.id", "twitch_chat_analyzer");
+        kafkaProps.setProperty("group.id", kafkaTopic);
         kafkaProps.setProperty("auto.offset.reset", "earliest");
 
         FlinkKafkaConsumer<Message> consumer =

@@ -5,10 +5,10 @@ services:
   #----------------------------------------------------------------------------
   bot:
     image: openjdk:8-alpine
-    command: java -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot kafka:9092 moonmoon_ow
+    command: java -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot kafka:9092 xqcow
     container_name: tca_bot
     volumes:
-      - ./target/emote-analyzer-1.0-SNAPSHOT.jar:/analyzer.jar:ro
+      - ./build/libs/twitch-chat-analyzer-1.1-SNAPSHOT.jar:/analyzer.jar:ro
     links:
       - kafka
     restart: always
