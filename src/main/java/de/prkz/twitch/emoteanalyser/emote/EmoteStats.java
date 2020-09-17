@@ -8,5 +8,5 @@ import de.prkz.twitch.emoteanalyser.AbstractStats;
 public class EmoteStats extends AbstractStats {
     public String channel;
     public String emote;
-    public int occurrences = 0;
+    public long occurrences = 0;
 }

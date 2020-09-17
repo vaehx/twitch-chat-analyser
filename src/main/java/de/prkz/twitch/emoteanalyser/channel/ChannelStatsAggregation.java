@@ -5,14 +5,10 @@ import de.prkz.twitch.emoteanalyser.Message;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.types.Row;
 
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Types;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, String, ChannelStats> {
 
@@ -41,41 +37,29 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
         stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
                 "channel VARCHAR(32) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
-                "messages INT NOT NULL," +
+                "messages BIGINT NOT NULL," +
                 "PRIMARY KEY(channel, timestamp))");
     }
 
     @Override
     protected String getUpsertSql() {
         return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, messages) " +
-                "VALUES(?, ?, ?) " +
+                "VALUES (?, ?, ?), (?, ?, ?) " +
                 "ON CONFLICT(channel, timestamp) DO UPDATE SET " +
                 "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
     }
 
     @Override
-    protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.INTEGER};
-    }
+    protected void setFieldsForOutput(PreparedStatement stmt, ChannelStats stats) throws SQLException {
+        // diff
+        stmt.setLong(1, stats.timestamp);
+        stmt.setString(2, stats.channel);
+        stmt.setLong(3, stats.messageCount);
 
-
-    @Override
-    protected Collection<Row> prepareStatsForOutput(ChannelStats stats) {
-        List<Row> rows = new ArrayList<>();
-
-        Row latest = new Row(3);
-        latest.setField(0, stats.timestamp);
-        latest.setField(1, stats.channel);
-        latest.setField(2, stats.messageCount);
-        rows.add(latest);
-
-        Row total = new Row(3);
-        total.setField(0, LATEST_TOTAL_TIMESTAMP);
-        total.setField(1, stats.channel);
-        total.setField(2, stats.messageCount);
-        rows.add(total);
-
-        return rows;
+        // total
+        stmt.setLong(4, LATEST_TOTAL_TIMESTAMP);
+        stmt.setString(5, stats.channel);
+        stmt.setLong(6, stats.messageCount);
     }
 
     @Override

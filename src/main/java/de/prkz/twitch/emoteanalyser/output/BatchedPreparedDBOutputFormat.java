@@ -19,6 +19,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Writes batches of rows
  */
+@Deprecated
 public class BatchedPreparedDBOutputFormat extends RichOutputFormat<List<Row>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(BatchedPreparedDBOutputFormat.class);

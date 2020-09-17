@@ -5,12 +5,8 @@ import de.prkz.twitch.emoteanalyser.Message;
 import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
-import org.apache.flink.types.Row;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 public class UserStatsAggregation
         extends AbstractStatsAggregation<Message, Tuple2<String, String>, UserStats> {
@@ -48,35 +44,24 @@ public class UserStatsAggregation
     @Override
     protected String getUpsertSql() {
         return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, username, messages) " +
-                "VALUES(?, ?, ?, ?) " +
+                "VALUES (?, ?, ?, ?), (?, ?, ?, ?) " +
                 "ON CONFLICT(channel, username, timestamp) DO UPDATE SET " +
                 "messages = " + TABLE_NAME + ".messages + EXCLUDED.messages";
     }
 
     @Override
-    protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.INTEGER};
-    }
+    protected void setFieldsForOutput(PreparedStatement stmt, UserStats stats) throws SQLException {
+        // diff
+        stmt.setLong(1, stats.timestamp);
+        stmt.setString(2, stats.channel);
+        stmt.setString(3, stats.username);
+        stmt.setLong(4, stats.messageCount);
 
-    @Override
-    protected Collection<Row> prepareStatsForOutput(UserStats stats) {
-        List<Row> rows = new ArrayList<>();
-
-        Row latest = new Row(4);
-        latest.setField(0, stats.timestamp);
-        latest.setField(1, stats.channel);
-        latest.setField(2, stats.username);
-        latest.setField(3, stats.messageCount);
-        rows.add(latest);
-
-        Row total = new Row(4);
-        total.setField(0, LATEST_TOTAL_TIMESTAMP);
-        total.setField(1, stats.channel);
-        total.setField(2, stats.username);
-        total.setField(3, stats.messageCount);
-        rows.add(total);
-
-        return rows;
+        // total
+        stmt.setLong(5, LATEST_TOTAL_TIMESTAMP);
+        stmt.setString(6, stats.channel);
+        stmt.setString(7, stats.username);
+        stmt.setLong(8, stats.messageCount);
     }
 
     @Override

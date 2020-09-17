@@ -5,12 +5,8 @@ import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
-import org.apache.flink.types.Row;
 
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
 
 // Key: (channel, emote, username)
 public class UserEmoteStatsAggregation
@@ -51,37 +47,26 @@ public class UserEmoteStatsAggregation
     @Override
     protected String getUpsertSql() {
         return "INSERT INTO " + TABLE_NAME + "(timestamp, channel, emote, username, occurrences) " +
-                "VALUES(?, ?, ?, ?, ?) " +
+                "VALUES (?, ?, ?, ?, ?), (?, ?, ?, ?, ?) " +
                 "ON CONFLICT(channel, emote, username, timestamp) DO UPDATE SET " +
                 "occurrences = " + TABLE_NAME + ".occurrences + EXCLUDED.occurrences";
     }
 
     @Override
-    protected int[] getUpsertTypes() {
-        return new int[] {Types.BIGINT, Types.VARCHAR, Types.VARCHAR, Types.VARCHAR, Types.INTEGER};
-    }
+    protected void setFieldsForOutput(PreparedStatement stmt, UserEmoteStats stats) throws SQLException {
+        // diff
+        stmt.setLong(1, stats.timestamp);
+        stmt.setString(2, stats.channel);
+        stmt.setString(3, stats.emote);
+        stmt.setString(4, stats.username);
+        stmt.setLong(5, stats.occurrences);
 
-    @Override
-    protected Collection<Row> prepareStatsForOutput(UserEmoteStats stats) {
-        List<Row> rows = new ArrayList<>();
-
-        Row latest = new Row(5);
-        latest.setField(0, stats.timestamp);
-        latest.setField(1, stats.channel);
-        latest.setField(2, stats.emote);
-        latest.setField(3, stats.username);
-        latest.setField(4, stats.occurrences);
-        rows.add(latest);
-
-        Row total = new Row(5);
-        total.setField(0, LATEST_TOTAL_TIMESTAMP);
-        total.setField(1, stats.channel);
-        total.setField(2, stats.emote);
-        total.setField(3, stats.username);
-        total.setField(4, stats.occurrences);
-        rows.add(total);
-
-        return rows;
+        // total
+        stmt.setLong(6, LATEST_TOTAL_TIMESTAMP);
+        stmt.setString(7, stats.channel);
+        stmt.setString(8, stats.emote);
+        stmt.setString(9, stats.username);
+        stmt.setLong(10, stats.occurrences);
     }
 
     @Override

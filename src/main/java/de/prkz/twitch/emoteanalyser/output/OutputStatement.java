@@ -3,6 +3,7 @@ package de.prkz.twitch.emoteanalyser.output;
 import java.util.ArrayList;
 import java.util.List;
 
+@Deprecated
 public class OutputStatement {
     private String sql;
 

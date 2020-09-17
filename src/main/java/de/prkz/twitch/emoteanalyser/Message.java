@@ -1,6 +1,5 @@
 package de.prkz.twitch.emoteanalyser;
 
-import org.apache.flink.api.common.eventtime.TimestampAssigner;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.json.JSONException;
 import org.json.JSONObject;

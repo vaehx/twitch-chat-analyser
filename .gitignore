@@ -1,4 +1,5 @@
 .gradle/*
+build/*
 .vscode/*
 target/*
 *.code-workspace

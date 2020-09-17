@@ -1,34 +1,26 @@
 package de.prkz.twitch.emoteanalyser;
 
-import de.prkz.twitch.emoteanalyser.output.BatchedPreparedDBOutputFormat;
-import de.prkz.twitch.emoteanalyser.output.DBOutputFormat;
-import de.prkz.twitch.emoteanalyser.output.OutputStatement;
 import org.apache.flink.api.common.functions.FlatMapFunction;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.*;
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.common.typeutils.base.LongSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.metrics.Histogram;
 import org.apache.flink.streaming.api.TimeDomain;
 import org.apache.flink.streaming.api.TimerService;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.functions.KeyedProcessFunction;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.types.Row;
 import org.apache.flink.util.Collector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
 // Output is a batch of partial aggregates to be written to a sink
@@ -136,7 +128,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
                 .uid(name + "_process_1");
 
         // Write batches of partial results to database
-        BatchedPreparedDBOutputFormat outputFormat;
+        /*BatchedPreparedDBOutputFormat outputFormat;
         try {
             outputFormat = BatchedPreparedDBOutputFormat
                     .builder()
@@ -147,20 +139,28 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
                     .finish();
         } catch (Exception ex) {
             throw new RuntimeException("Could not create output format", ex);
-        }
+        }*/
 
         aggregatedStatsBatches
-                .map(new MapFunction<List<STATS>, List<Row>>() {
+                .flatMap(new FlatMapFunction<List<STATS>, STATS>() {
                     @Override
-                    public List<Row> map(List<STATS> stats) {
-                        List<Row> rows = new ArrayList<>();
-                        for (STATS stat : stats)
-                            rows.addAll(prepareStatsForOutput(stat));
-
-                        return rows;
+                    public void flatMap(List<STATS> statsList, Collector<STATS> collector) throws Exception {
+                        for (STATS stats : statsList)
+                            collector.collect(stats);
                     }
                 })
-                .writeUsingOutputFormat(outputFormat)
+                .returns(getStatsTypeInfo())
+                .addSink(new XAPostgresSink<STATS>(jdbcUrl, 100) {
+                    @Override
+                    protected String getInsertSQL() {
+                        return getUpsertSql();
+                    }
+
+                    @Override
+                    protected void setFields(PreparedStatement stmt, STATS row) throws SQLException {
+                        setFieldsForOutput(stmt, row);
+                    }
+                })
                 .name(name + "_Sink")
                 .setParallelism(parallelism)
                 .uid(name + "_sink_1");
@@ -198,7 +198,9 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
 
     protected abstract String getUpsertSql();
 
-    protected abstract int[] getUpsertTypes();
-
-    protected abstract Collection<Row> prepareStatsForOutput(STATS stats);
+    /**
+     * Sets the fields of the stmt for the given stats, which are specific to the upsert sql and
+     * the previously prepared rows.
+     */
+    protected abstract void setFieldsForOutput(PreparedStatement stmt, STATS stats) throws SQLException;
 }
