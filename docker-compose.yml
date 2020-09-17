@@ -100,7 +100,7 @@ services:
   # TimescaleDB
   #----------------------------------------------------------------------------
   timescaledb:
-    image: timescale/timescaledb:latest-pg11
+    image: timescale/timescaledb:latest-pg12
     container_name: tca_timescaledb
     environment:
       POSTGRES_PASSWORD: password
