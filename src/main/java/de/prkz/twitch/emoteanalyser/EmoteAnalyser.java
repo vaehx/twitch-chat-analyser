@@ -68,11 +68,11 @@ public class EmoteAnalyser {
         // Pull messages from Kafka
         Properties kafkaProps = new Properties();
         kafkaProps.setProperty("bootstrap.servers", kafkaBootstrapServer);
-        kafkaProps.setProperty("group.id", kafkaTopic);
+        kafkaProps.setProperty("group.id", "twitch_chat_analyser");
         kafkaProps.setProperty("auto.offset.reset", "earliest");
 
         FlinkKafkaConsumer<Message> consumer =
-                new FlinkKafkaConsumer<>("TwitchMessages", new MessageDeserializationSchema(), kafkaProps);
+                new FlinkKafkaConsumer<>(kafkaTopic, new MessageDeserializationSchema(), kafkaProps);
         DataStream<Message> messages = env
                 .addSource(consumer)
                 .uid("KafkaSource_0")
