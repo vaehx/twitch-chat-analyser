@@ -85,8 +85,6 @@ services:
       JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
     volumes:
       # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
-      - ./flink/log4j-console.properties:/opt/flink/conf/log4j-console.properties
-      - ./flink/logback-console.xml:/opt/flink/conf/logback-console.properties
       # Same directory, so JM can delete TM checkpoint data
       - ./flink-data:/data
     links:
