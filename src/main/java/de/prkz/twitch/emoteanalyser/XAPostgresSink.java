@@ -185,6 +185,9 @@ public abstract class XAPostgresSink<T> extends TwoPhaseCommitSinkFunction<T, St
                 reconnect();
         } catch (Exception e) {
             LOG.error("Could not reconnect to commit after recover", e);
+
+            // We can only continue with commit if we managed to reconnect
+            throw new RuntimeException("Could not reconnect to commit after recover", e);
         }
 
         // In case of recover, the operator may have restarted, so we have to re-acquire the lock just like
@@ -219,6 +222,9 @@ public abstract class XAPostgresSink<T> extends TwoPhaseCommitSinkFunction<T, St
                 reconnect();
         } catch (Exception e) {
             LOG.error("Could not reconnect to abort after recover", e);
+
+            // We can only continue with commit if we managed to reconnect
+            throw new RuntimeException("Could not reconnect to abort after recover", e);
         }
 
         // Most of the time, the transaction is not pre-committed yet (i.e. PREPARE TRANSACTION never completed)
