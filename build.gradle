@@ -11,7 +11,7 @@ sourceCompatibility = '1.8'
 
 project.ext.mainClassName = 'de.prkz.twitch.emoteanalyser.EmoteAnalyser'
 
-def flinkVersion = '1.11.1'
+def flinkVersion = '1.11.2'
 def flinkScalaVersion = '2.12'
 
 if (!hasProperty('mainClass')) {
