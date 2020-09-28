@@ -2,6 +2,9 @@ package de.prkz.twitch.emoteanalyser;
 
 import de.prkz.twitch.emoteanalyser.channel.ChannelStatsAggregation;
 import de.prkz.twitch.emoteanalyser.emote.*;
+import de.prkz.twitch.emoteanalyser.phrase.PhraseExtractor;
+import de.prkz.twitch.emoteanalyser.phrase.PhraseStats;
+import de.prkz.twitch.emoteanalyser.phrase.PhraseStatsAggregation;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
@@ -117,6 +120,18 @@ public class EmoteAnalyser {
                 new UserEmoteStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         userEmoteStatsAggregation.prepareTable(stmt);
         userEmoteStatsAggregation.aggregateAndExportFrom(emotes, PARALLELISM, "UserEmoteStats");
+
+
+        // Phrase (regex) statistics
+        PhraseExtractor.prepareTables(stmt);
+        DataStream<PhraseStats> matchedPhrases = messages
+                .flatMap(new PhraseExtractor(jdbcUrl))
+                .name("PhraseExtractor");
+
+        PhraseStatsAggregation phraseStatsAggregation =
+                new PhraseStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
+        phraseStatsAggregation.prepareTable(stmt);
+        phraseStatsAggregation.aggregateAndExportFrom(matchedPhrases, PARALLELISM, "PhraseStats");
 
 
         stmt.close();

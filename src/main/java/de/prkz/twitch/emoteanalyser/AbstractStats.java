@@ -1,5 +1,7 @@
 package de.prkz.twitch.emoteanalyser;
 
-public abstract class AbstractStats {
+import java.io.Serializable;
+
+public abstract class AbstractStats implements Serializable {
     public long timestamp;
 }

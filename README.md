@@ -24,6 +24,15 @@
 The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
 
 
+## Phrases
+
+Phrases are configured in the `phrases` table and are matched case insensitive:
+
+```
+INSERT INTO phrases(name, regex) VALUES('furry', 'furr+y+');
+```
+
+
 ## Processing a large batch of messages
 
 To process historic messages you may want to load a large batch of messages into Kafka.
