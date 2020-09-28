@@ -58,8 +58,6 @@ public class PhraseExtractor extends RichFlatMapFunction<Message, PhraseStats> {
                     matches++;
                 }
 
-                LOG.info("Found {} matches matching '{}' against: '{}'", matches, phrase.pattern.toString(), message.message);
-
                 if (matches > 0) {
                     PhraseStats p = new PhraseStats();
                     p.timestamp = message.timestamp;
@@ -96,7 +94,7 @@ public class PhraseExtractor extends RichFlatMapFunction<Message, PhraseStats> {
         long now = System.currentTimeMillis();
         lastPhraseReload = now;
 
-        LOG.info("Reloaded {} phrases in {} ms", phrases.size(), now - startTime);
+        LOG.debug("Reloaded {} phrases in {} ms", phrases.size(), now - startTime);
     }
 
     public static void prepareTables(Statement stmt) throws SQLException {
