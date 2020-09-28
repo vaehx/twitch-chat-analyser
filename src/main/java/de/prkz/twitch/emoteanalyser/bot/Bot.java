@@ -7,6 +7,7 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.pircbotx.PircBotX;
 import org.pircbotx.hooks.ListenerAdapter;
+import org.pircbotx.hooks.events.ActionEvent;
 import org.pircbotx.hooks.events.ConnectAttemptFailedEvent;
 import org.pircbotx.hooks.events.MessageEvent;
 import org.slf4j.Logger;
@@ -70,15 +71,28 @@ public class Bot extends ListenerAdapter {
     }
 
     @Override
+    public void onAction(ActionEvent event) throws Exception {
+        // Includes BOT messages, we convert them to normal messages
+
+        if (event.getUser() == null)
+            return;
+
+        Message m = new Message();
+        m.channel = cleanupChannelName(event.getChannel().getName());
+        m.timestamp = event.getTimestamp();
+        m.username = event.getUser().getNick();
+        m.message = event.getAction();
+
+        producer.send(new ProducerRecord<>(TOPIC, m.timestamp, m));
+    }
+
+    @Override
     public void onMessage(MessageEvent event) throws Exception {
         if (event.getUser() == null)
             return;
 
         Message m = new Message();
-        m.channel = event.getChannel().getName();
-        if (m.channel.startsWith("#"))
-            m.channel = m.channel.substring(1);
-
+        m.channel = cleanupChannelName(event.getChannel().getName());
         m.timestamp = event.getTimestamp();
         m.username = event.getUser().getNick();
         m.message = event.getMessage();
@@ -95,5 +109,12 @@ public class Bot extends ListenerAdapter {
 
             System.exit(1);
         }
+    }
+
+    /**
+     * Removes potential '#' from start of channel name and returns the cleaned-up version
+     */
+    private static String cleanupChannelName(String channel) {
+        return channel.startsWith("#") ? channel.substring(1) : channel;
     }
 }
