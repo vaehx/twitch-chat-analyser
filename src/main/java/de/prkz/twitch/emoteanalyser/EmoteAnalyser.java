@@ -2,9 +2,7 @@ package de.prkz.twitch.emoteanalyser;
 
 import de.prkz.twitch.emoteanalyser.channel.ChannelStatsAggregation;
 import de.prkz.twitch.emoteanalyser.emote.*;
-import de.prkz.twitch.emoteanalyser.phrase.PhraseExtractor;
-import de.prkz.twitch.emoteanalyser.phrase.PhraseStats;
-import de.prkz.twitch.emoteanalyser.phrase.PhraseStatsAggregation;
+import de.prkz.twitch.emoteanalyser.phrase.*;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
@@ -13,14 +11,13 @@ import org.apache.flink.runtime.state.StateBackend;
 import org.apache.flink.runtime.state.filesystem.FsStateBackend;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.Statement;
+import java.sql.*;
 import java.time.Duration;
 import java.util.Properties;
 
@@ -124,14 +121,22 @@ public class EmoteAnalyser {
 
         // Phrase (regex) statistics
         PhraseExtractor.prepareTables(stmt);
-        DataStream<PhraseStats> matchedPhrases = messages
-                .flatMap(new PhraseExtractor(jdbcUrl))
+        PhraseExtractor phraseExtractor = new PhraseExtractor(jdbcUrl);
+
+        SingleOutputStreamOperator<PhraseStats> matchedPhrases = messages
+                .process(phraseExtractor)
                 .name("PhraseExtractor");
 
         PhraseStatsAggregation phraseStatsAggregation =
                 new PhraseStatsAggregation(jdbcUrl, aggregationIntervalMs, triggerIntervalMs);
         phraseStatsAggregation.prepareTable(stmt);
         phraseStatsAggregation.aggregateAndExportFrom(matchedPhrases, PARALLELISM, "PhraseStats");
+
+        MessagesMatchingPhraseExporter.prepareTables(stmt);
+        matchedPhrases
+                .getSideOutput(phraseExtractor.getMatchedMessagesOutputTag())
+                .addSink(new MessagesMatchingPhraseExporter(jdbcUrl))
+                .name("MessagesMatchingPhraseExporter");
 
 
         stmt.close();

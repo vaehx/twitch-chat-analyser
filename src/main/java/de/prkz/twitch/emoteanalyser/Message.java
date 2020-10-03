@@ -4,11 +4,23 @@ import org.apache.flink.api.java.functions.KeySelector;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-public class Message {
+import java.io.Serializable;
+
+public class Message implements Serializable {
     public long timestamp;
     public String channel;
     public String username;
     public String message;
+
+    public Message() {
+    }
+
+    public Message(Message o) {
+        timestamp = o.timestamp;
+        channel = o.channel;
+        username = o.username;
+        message = o.message;
+    }
 
     public String toJson() {
         JSONObject obj = new JSONObject();
