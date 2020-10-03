@@ -95,18 +95,18 @@ services:
     restart: always
 
   #----------------------------------------------------------------------------
-  # TimescaleDB
+  # Postgres
   #----------------------------------------------------------------------------
-  timescaledb:
-    image: timescale/timescaledb:latest-pg12
-    container_name: tca_timescaledb
+  postgres:
+    image: postgres:13.0
+    container_name: tca_postgres
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     environment:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: twitch
     volumes:
       - ./postgresql/postgresql.conf:/etc/postgresql/postgresql.conf:ro
-      - timescaledb-data:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     expose:
       - "5432"
     restart: always
@@ -124,8 +124,8 @@ services:
       - ./dashboard:/var/www/html
       - ./dashboard/php.ini:/usr/local/etc/php/php-dashboard.ini:ro
     links:
-      - timescaledb
+      - postgres
     restart: always
 
 volumes:
-  timescaledb-data:
+  postgres-data:
