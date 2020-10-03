@@ -3,7 +3,7 @@
 import subprocess
 
 PARALLELISM = 1
-JDBC_URL = "jdbc:postgresql://timescaledb:5432/twitch?user=postgres&password=password" 
+JDBC_URL = "jdbc:postgresql://postgres:5432/twitch?user=postgres&password=password" 
 KAFKA_BOOTSTRAP_SERVER = "kafka:9092"
 KAFKA_TOPIC = "TwitchMessages"
 AGGREGATION_INTERVAL_MS = 900000 # 15 min, event-time
