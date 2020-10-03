@@ -22,22 +22,25 @@ public class MessagesMatchingPhraseExporter extends XAPostgresSink<MessageMatchi
     @Override
     protected String getInsertSQL() {
         return "INSERT INTO " + MESSAGES_MATCHING_PHRASE_TABLE + "" +
-                "(message_time, message_user, message_text, matched_phrase) " +
-                "VALUES(?, ?, ?, ?)";
+                "(message_time, message_channel, message_user, message_text, matched_phrase) " +
+                "VALUES(?, ?, ?, ?, ?)";
     }
 
     @Override
     protected void setFields(PreparedStatement stmt, MessageMatchingPhrase messageMatchingPhrase) throws SQLException {
-        stmt.setTimestamp(1, Timestamp.from(Instant.ofEpochMilli(messageMatchingPhrase.timestamp)),
+        int i = 1;
+        stmt.setTimestamp(i++, Timestamp.from(Instant.ofEpochMilli(messageMatchingPhrase.timestamp)),
                 Calendar.getInstance(TimeZone.getTimeZone("UTC")));
-        stmt.setString(2, messageMatchingPhrase.username);
-        stmt.setString(3, messageMatchingPhrase.message);
-        stmt.setString(4, messageMatchingPhrase.phrase.name);
+        stmt.setString(i++, messageMatchingPhrase.channel);
+        stmt.setString(i++, messageMatchingPhrase.username);
+        stmt.setString(i++, messageMatchingPhrase.message);
+        stmt.setString(i++, messageMatchingPhrase.phrase.name);
     }
 
     public static void prepareTables(Statement stmt) throws SQLException {
         stmt.execute("CREATE TABLE IF NOT EXISTS " + MESSAGES_MATCHING_PHRASE_TABLE + "(" +
                 "message_time TIMESTAMPTZ," +
+                "message_channel VARCHAR NOT NULL," +
                 "message_user VARCHAR NOT NULL," +
                 "message_text VARCHAR NOT NULL," +
                 "matched_phrase VARCHAR NOT NULL)");
