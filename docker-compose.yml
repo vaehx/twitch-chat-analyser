@@ -71,7 +71,7 @@ services:
       # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
       - ./flink-data:/data
     links:
-      - timescaledb
+      - postgres
     restart: always
   
   flink-taskmanager:
@@ -89,7 +89,7 @@ services:
       - ./flink-data:/data
     links:
       - flink-jobmanager
-      - timescaledb
+      - postgres
       - zookeeper
       - kafka
     restart: always
