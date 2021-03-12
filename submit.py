@@ -28,4 +28,4 @@ run_shell_command(['docker', 'exec', 'tca_flink-jobmanager', 'flink', 'run', '-d
     KAFKA_BOOTSTRAP_SERVER,
     KAFKA_TOPIC,
     str(AGGREGATION_INTERVAL_MS),
-    str(TRIGGER_INTERVAL_MS))
+    str(TRIGGER_INTERVAL_MS)])
