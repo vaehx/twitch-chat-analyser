@@ -18,7 +18,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
-import java.time.Duration;
 import java.util.Properties;
 
 public class EmoteAnalyser {
@@ -38,7 +37,7 @@ public class EmoteAnalyser {
         // Parse arguments
         if (args.length < 5) {
             System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <kafka-topic> <aggregation-interval-ms> " +
-                    "<trigger-interval-ms> <max-out-of-orderness-ms>");
+                    "<trigger-interval-ms>");
             System.exit(1);
         }
 
@@ -47,7 +46,6 @@ public class EmoteAnalyser {
         String kafkaTopic = args[2];
         long aggregationIntervalMs = Long.parseLong(args[3]);
         long triggerIntervalMs = Long.parseLong(args[4]);
-        long maxOutOfOrdernessMs = Long.parseLong(args[5]);
 
         // Prepare database
         Connection conn = DriverManager.getConnection(jdbcUrl);
@@ -78,7 +76,7 @@ public class EmoteAnalyser {
                 .uid("KafkaSource_0")
                 .name("KafkaSource")
                 .assignTimestampsAndWatermarks(WatermarkStrategy
-                        .<Message>forBoundedOutOfOrderness(Duration.ofMillis(maxOutOfOrdernessMs))
+                        .<Message>noWatermarks()
                         .withTimestampAssigner((message, recordTs) -> message.timestamp))
                 .uid("MessageTimestamps_0");
 
@@ -102,7 +100,7 @@ public class EmoteAnalyser {
                 .flatMap(emoteExtractor)
                 .name("ExtractEmotes")
                 .assignTimestampsAndWatermarks(WatermarkStrategy
-                        .<Emote>forMonotonousTimestamps()
+                        .<Emote>noWatermarks()
                         .withTimestampAssigner((emote, recordTs) -> emote.timestamp))
                 .uid("EmoteTimestamps_0");
 
