@@ -10,6 +10,9 @@ import java.time.Instant;
 import java.util.Calendar;
 import java.util.TimeZone;
 
+/**
+ * Exporter for the log of messages matching phrases.
+ */
 public class MessagesMatchingPhraseExporter extends XAPostgresSink<MessageMatchingPhrase> {
 
     private static final String MESSAGES_MATCHING_PHRASE_TABLE = "messages_matching_phrase";

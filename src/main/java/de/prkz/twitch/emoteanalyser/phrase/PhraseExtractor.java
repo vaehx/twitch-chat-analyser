@@ -21,7 +21,6 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
     private static final Logger LOG = LoggerFactory.getLogger(PhraseExtractor.class);
 
     private static final String PHRASES_TABLE = "phrases";
-    private static final String PHRASE_MATCHES_LOG_TABLE = "phrases_log";
     private static final Long PHRASE_RELOAD_INTERVAL_MILLIS = 60 * 1000L;
 
     private transient long lastPhraseReload;
