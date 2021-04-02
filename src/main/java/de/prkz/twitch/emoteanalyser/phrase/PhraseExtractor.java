@@ -15,6 +15,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
 
@@ -56,10 +57,15 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
         try {
             reloadPhrasesIfNecessary();
 
-            // There may be multiple phrases/regexes matching the message
+            // There may be multiple phrases/regexes matching within a single message!
             for (Phrase phrase : phrases) {
-                Matcher matcher = phrase.pattern.matcher(message.message);
+                if (phrase.channelPattern != null) {
+                    Matcher channelMatcher = phrase.channelPattern.matcher(message.channel);
+                    if (!channelMatcher.matches())
+                        continue;
+                }
 
+                Matcher matcher = phrase.pattern.matcher(message.message);
                 int matches = 0;
                 while (matcher.find()) {
                     matches++;
@@ -92,12 +98,40 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
 
         Class.forName(org.postgresql.Driver.class.getCanonicalName());
         try (Connection conn = DriverManager.getConnection(jdbcUrl); Statement stmt = conn.createStatement()) {
-            ResultSet resultSet = stmt.executeQuery("SELECT name, regex, log_message FROM " + PHRASES_TABLE);
+            ResultSet resultSet = stmt.executeQuery(
+                    "SELECT name, regex, channel_filter_regex, log_message FROM " + PHRASES_TABLE);
 
             phrases.clear();
             while (resultSet.next()) {
-                Pattern pattern = Pattern.compile(resultSet.getString("regex"), Pattern.CASE_INSENSITIVE);
-                phrases.add(new Phrase(resultSet.getString("name"), pattern, resultSet.getBoolean("log_message")));
+                String name = resultSet.getString("name");
+
+                String regex = resultSet.getString("regex");
+                Pattern pattern;
+                try {
+                    pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+                } catch (PatternSyntaxException e) {
+                    LOG.error("Invalid regex '{}' for phrase '{}'. Will ignore this phrase!", regex, name);
+                    continue;
+                }
+
+                String channelFilterRegex = resultSet.getString("channel_filter_regex");
+                Pattern channelPattern;
+                try {
+                    channelPattern = resultSet.wasNull()
+                        ? Pattern.compile(channelFilterRegex, Pattern.CASE_INSENSITIVE)
+                        : null;
+                } catch (PatternSyntaxException e) {
+                    LOG.error("Invalid channel filter regex: '{}' for phrase '{}'. Will ignore this phrase!",
+                            channelFilterRegex, name);
+                    continue;
+                }
+
+                Phrase phrase = new Phrase(
+                        resultSet.getString("name"),
+                        pattern,
+                        channelPattern,
+                        resultSet.getBoolean("log_message"));
+                phrases.add(phrase);
             }
         } catch (SQLException e) {
             throw new Exception("Could not reload phrases because of an SQL error", e);
@@ -113,6 +147,7 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
         stmt.execute("CREATE TABLE IF NOT EXISTS " + PHRASES_TABLE + "(" +
                 "name VARCHAR(64) NOT NULL," +
                 "regex VARCHAR NOT NULL," +
+                "channel_filter_regex VARCHAR DEFAULT NULL," +
                 "log_message BOOLEAN NOT NULL DEFAULT false," +
                 "PRIMARY KEY(name))");
     }
