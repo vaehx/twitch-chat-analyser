@@ -24,6 +24,29 @@
 The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
 
 
+## Flink Job
+
+The main entrypoint is in `EmoteAnalyser`.
+
+![Dataflow](docs/img/dataflow.png)
+
+https://docs.google.com/drawings/d/1m1V-LRHvXiIW-7Fq5CdbnZUVssn3EcC3L6ZxkM-hhW4/edit
+
+### Aggregation implementation
+- Aggregators are specific implementations of `AbstractStatsAggregation`.
+- Aggregation works by first mapping into "XXXStats" objects, which are also per-time-window.
+- Then a low-level process() does the piece-wise aggregation. Using per-key processing-time timers (`aggregationInterval`), the aggregated stats objects are then flushed to the exporter.
+- In the exporter(s), they are converted to UPSERTs which are buffered in batches until either the batch is full or a checkpoint barrier is reached. In either case, they batches are flushed and written to the DB, but not yet committed.
+- The exporter implementation is transactional. The transactions are committed during checkpoints. Thus, a 2-phase-commit protocol is implemented.
+
+### Latency considerations
+The maximum latency is `aggregationInterval + checkpointInterval`, ignoring processing and database write latencies. This is for the case, that a message is received right at the start of a new aggregation interval, is then pushed downstream after `aggregationInterval`, arrives at the exporter right after the start of a new checkpoint interval and then gets buffered until the commit after `checkpointInterval`.
+
+If, for example, `aggregationInterval = 30s` and `checkpointInterval = 5min`, then in the worst case, you may only see a database update after 5.5min after the message entered the pipeline.
+
+In the best case, a message arrives for an existing key right before the end of its aggregation interval, and is written by the exporter right before a checkpoint barrier (and is therefore commited right away). Then, the latency is only limited by processing and write latencies, and should be close to 0s.
+
+
 ## Phrases
 
 Phrases are configured in the `phrases` table and are matched case insensitive:
@@ -39,9 +62,16 @@ To process historic messages you may want to load a large batch of messages into
 Since the current configuration is tuned for latency, processing of this batch may be slow.
 
 To improve the performance of the "batch" processing, alter the configuration in `submit.sh` to your needs:
-	
-	* Increase database output batch size
-	* Choose a longer trigger interval
+
+- Choose a longer trigger interval
+
+- Increase checkpoint interval
+	- Checkpointing too often can stall the pipeline unnecessarily. This is especially unnecessary overhead when there is little risk of losing data (in the worst case, you have to start the processing again from the last checkpoint).
+	- Checkpointing too rarely might mean you have to reprocess a lot, in case of a failure.
+
+- Increase database output batch size
+	- This is mainly dependent on the database (including full-stack configuration and hardware)
+	- Tests have shown that the performance improves significantly until the optimal batch size was reached. Increasing the batch size any further only slightly decreases performance
 
 
 ## Troubleshooting
