@@ -117,7 +117,7 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
                 String channelFilterRegex = resultSet.getString("channel_filter_regex");
                 Pattern channelPattern;
                 try {
-                    channelPattern = resultSet.wasNull()
+                    channelPattern = !resultSet.wasNull()
                         ? Pattern.compile(channelFilterRegex, Pattern.CASE_INSENSITIVE)
                         : null;
                 } catch (PatternSyntaxException e) {
