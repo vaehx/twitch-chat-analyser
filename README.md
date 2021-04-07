@@ -49,10 +49,17 @@ In the best case, a message arrives for an existing key right before the end of 
 
 ## Phrases
 
-Phrases are configured in the `phrases` table and are matched case insensitive:
+Phrases are configured in the `phrases` table and are matched case insensitive.
 
-```
-INSERT INTO phrases(name, regex) VALUES('furry', 'furr+y+');
+You can optionally filter by channel (default `NULL`, i.e. match any channel). Additionally, if you set `log_message` to `true` (default `false`), any message that matched a phrase at least once, will be logged to the `messages_matching_phrase` table.
+
+Examples:
+
+```sql
+INSERT INTO phrases("name", "regex") VALUES('furry', 'furr+y+');
+
+INSERT INTO phrases("name", "regex", "log_message", "channel_filter_regex")
+    VALUES('xqc_roulette', '^!roulette (all|\d+k?)', true, 'xqcow');
 ```
 
 
