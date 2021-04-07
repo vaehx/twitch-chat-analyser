@@ -6,6 +6,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.pircbotx.PircBotX;
+import org.pircbotx.delay.StaticDelay;
 import org.pircbotx.hooks.ListenerAdapter;
 import org.pircbotx.hooks.events.ActionEvent;
 import org.pircbotx.hooks.events.ConnectAttemptFailedEvent;
@@ -62,7 +63,7 @@ public class Bot extends ListenerAdapter {
                 .addAutoJoinChannels(channels)
                 .setAutoReconnect(true)
                 .setAutoReconnectAttempts(20)
-                .setAutoReconnectDelay(10000)
+                .setAutoReconnectDelay(new StaticDelay(10000))
                 .buildConfiguration();
 
         LOG.info("Now starting bot...");
@@ -74,7 +75,7 @@ public class Bot extends ListenerAdapter {
     public void onAction(ActionEvent event) throws Exception {
         // Includes BOT messages, we convert them to normal messages
 
-        if (event.getUser() == null)
+        if (event.getUser() == null || event.getChannel() == null)
             return;
 
         Message m = new Message();
