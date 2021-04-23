@@ -47,7 +47,7 @@ public class Bot extends ListenerAdapter {
         System.out.println(binder.getLoggerFactory());
         System.out.println(binder.getLoggerFactoryClassStr());
 
-        if (args.length <= 1) {
+        if (args.length == 0) {
             System.err.println("Requires arguments: <path/to/config.properties>");
             System.exit(1);
         }
