@@ -31,8 +31,6 @@ public class Bot extends ListenerAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(Bot.class);
 
-    private static final long STREAM_UPDATE_COOLDOWN_MILLIS = 150 * 1000L;
-
     private final Config config;
     private KafkaProducer<Long, Message> producer;
     private TwitchHelix twitch;
@@ -71,11 +69,11 @@ public class Bot extends ListenerAdapter {
         LOG.info("Setting up streams table '{}', if it doesn't exist yet...", config.getStreamsTableName());
         try (Statement stmt = dbConn.createStatement()) {
             stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + config.getStreamsTableName() + "(" +
-                    "id SERIAL PRIMARY KEY," +
                     "channel VARCHAR NOT NULL," +
                     "channel_id VARCHAR NOT NULL," +
                     "started_at TIMESTAMP WITH TIME ZONE NOT NULL," +
-                    "ended_at TIMESTAMP WITH TIME ZONE NOT NULL)");
+                    "ended_at TIMESTAMP WITH TIME ZONE NOT NULL," +
+                    "PRIMARY KEY(channel, started_at))");
         }
 
         LOG.info("Connecting to Twitch API...");
@@ -168,16 +166,19 @@ public class Bot extends ListenerAdapter {
     /**
      * Updates stream info in DB for all channels that the bot is configured to listen to
      */
-    private void updateAllStreamsInfo() {
+    private synchronized void updateAllStreamsInfo() {
         // Check if *any* channel needs update. This avoid re-opening the prepared statement for every single message
         final long now = System.currentTimeMillis();
-        if (livestreams.values().stream().noneMatch(d -> (now - d.updatedAt() > STREAM_UPDATE_COOLDOWN_MILLIS)))
+        boolean noStreamNeedsUpdate = livestreams.values().stream()
+                .noneMatch(d -> (now - d.updatedAt() >= config.getStreamsUpdateCooldownMillis()));
+        if (livestreams.size() == config.getChannels().size() && noStreamNeedsUpdate) {
             return;
+        }
 
         final String sql = "INSERT INTO " + config.getStreamsTableName() +
                 "(channel, channel_id, started_at, ended_at) " +
-                "VALUES(?, ?, to_timestamp(? * 0.001) at time zone utc, to_timestamp(? * 0.001) at time zone utc) " +
-                "ON CONFLICT DO UPDATE SET ended_at = excluded.ended_at";
+                "VALUES(?, ?, to_timestamp(? * 0.001) at time zone 'utc', to_timestamp(? * 0.001) at time zone 'utc') " +
+                "ON CONFLICT(channel, started_at) DO UPDATE SET ended_at = excluded.ended_at";
         try (final PreparedStatement stmt = dbConn.prepareStatement(sql)) {
             config.getChannels().forEach(channel -> {
                 updateStreamInfo(channel, stream -> {
@@ -200,43 +201,45 @@ public class Bot extends ListenerAdapter {
      * @param channel case insensitive
      */
     private void updateStreamInfo(String channel, ThrowingConsumer<ChannelSearchResult> upsertCallback) {
-        channel = channel.toLowerCase();
-
         Dated<ChannelSearchResult> stream = livestreams.get(channel);
-
         if (stream != null) {
-            if (System.currentTimeMillis() - stream.updatedAt() < STREAM_UPDATE_COOLDOWN_MILLIS)
+            if (System.currentTimeMillis() - stream.updatedAt() < config.getStreamsUpdateCooldownMillis())
                 return; // info still up to date
+        } else {
+            stream = new Dated<>();
+            livestreams.put(channel, stream);
         }
 
         // Fetch current info: We're only interested in live channels
         ChannelSearchList searchList = twitch.searchChannels(null, channel, 1, null, true).execute();
-        boolean isOffline;
+        boolean isLive = false;
         if (!searchList.getResults().isEmpty()) {
-            isOffline = false;
-            if (stream == null) {
-                // Stream just went live
-                stream = new Dated<>();
-                livestreams.put(channel, stream);
-            }
+            ChannelSearchResult r = searchList.getResults().get(0);
 
-            stream.set(searchList.getResults().get(0));
-        } else {
-            isOffline = true;
-        }
-
-        if (stream != null) {
-            // Update end-time of existing stream info regardless of whether it just went offline or not
-            try {
-                upsertCallback.apply(stream.get());
-                LOG.info("Updated stream info in DB for channel '{}'", channel);
-            } catch (Exception e) {
-                LOG.error("Could not update stream info for channel '{}' in DB", channel, e);
+            // We also have to check for exact match
+            if (r.getBroadcasterLogin().equalsIgnoreCase(channel)) {
+                isLive = true;
+                stream.set(r);
             }
         }
 
-        if (isOffline)
-            livestreams.remove(channel);
+        if (stream.get() != null) { // stream was live before or just went live
+            ChannelSearchResult r = stream.get();
+            if (r.getIsLive() && r.getStartedAt() != null) {
+                // Update end-time of existing stream info regardless of whether it just went offline or not
+                try {
+                    upsertCallback.apply(r);
+                    LOG.info("Updated stream info in DB for channel '{}'", channel);
+                } catch (Exception e) {
+                    LOG.error("Could not update stream info for channel '{}' in DB", channel, e);
+                }
+            }
+        }
+
+        if (!isLive) {
+            stream.set(null);
+            LOG.info("Channel '{}' is not live.", channel);
+        }
     }
 
 

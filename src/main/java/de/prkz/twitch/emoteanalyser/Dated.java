@@ -8,7 +8,8 @@ public class Dated<T> {
     private T t;
 
     public Dated() {
-        set(null);
+        updatedAt = 0;
+        t = null;
     }
 
     public Dated(T t) {
