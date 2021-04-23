@@ -84,6 +84,9 @@ public class Bot extends ListenerAdapter {
                 .withClientSecret(config.getTwitchClientSecret())
                 .build();
 
+        LOG.info("Updating streams info now...");
+        updateAllStreamsInfo();
+
         LOG.info("Connecting to Kafka cluster...");
         Properties kafkaProps = new Properties();
         kafkaProps.put("bootstrap.servers", config.getKafkaBootstrapServers());
@@ -130,6 +133,8 @@ public class Bot extends ListenerAdapter {
         m.message = event.getAction();
 
         producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
+
+        updateAllStreamsInfo();
     }
 
     @Override
@@ -144,6 +149,8 @@ public class Bot extends ListenerAdapter {
         m.message = event.getMessage();
 
         producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
+
+        updateAllStreamsInfo();
     }
 
     @Override
