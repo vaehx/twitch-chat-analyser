@@ -8,6 +8,7 @@ import de.prkz.twitch.emoteanalyser.Dated;
 import de.prkz.twitch.emoteanalyser.Message;
 import de.prkz.twitch.emoteanalyser.MessageSerializer;
 import de.prkz.twitch.emoteanalyser.ThrowingConsumer;
+import de.prkz.twitch.emoteanalyser.bot.config.Config;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
@@ -21,6 +22,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.StaticLoggerBinder;
 
+import java.nio.file.Paths;
 import java.sql.*;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,17 +33,11 @@ public class Bot extends ListenerAdapter {
 
     private static final long STREAM_UPDATE_COOLDOWN_MILLIS = 150 * 1000L;
 
+    private final Config config;
     private KafkaProducer<Long, Message> producer;
     private TwitchHelix twitch;
     private final Map<String, Dated<ChannelSearchResult>> livestreams = new HashMap<>();
     private Connection dbConn;
-    private String twitchClientId;
-    private String twitchClientSecret;
-    private String jdbcUrl;
-    private String streamsTableName;
-    private List<String> channels;
-    private String kafkaBootstrapServer;
-    private String kafkaTopic;
 
 
     public static void main(String[] args) throws Exception {
@@ -52,38 +48,29 @@ public class Bot extends ListenerAdapter {
         System.out.println(binder.getLoggerFactoryClassStr());
 
         if (args.length <= 1) {
-            System.err.println("Requires arguments: <twitch-client-id> <twitch-client-secret> <jdbc-url> " +
-                    "<streams-table-name> <kafka-bootstrap-server> <kafka-topic> <channel...>");
+            System.err.println("Requires arguments: <path/to/config.properties>");
             System.exit(1);
         }
 
-        Bot bot = new Bot();
+        final Config config = Config.parse(Paths.get(args[0]));
 
-        int i = 0;
-        bot.twitchClientId = args[i++];
-        bot.twitchClientSecret = args[i++];
-        bot.jdbcUrl = args[i++];
-        bot.streamsTableName = args[i++];
-        bot.kafkaBootstrapServer = args[i++];
-        bot.kafkaTopic = args[i++];
-
-        bot.channels = new ArrayList<>();
-        for (; i < args.length; ++i) {
-            LOG.info("Will join channel " + args[i]);
-            bot.channels.add(args[i]);
-        }
-
+        final Bot bot = new Bot(config);
         bot.start();
+    }
+
+
+    public Bot(Config config) {
+        this.config = config;
     }
 
     private void start() throws Exception {
         LOG.info("Connecting to Database...");
         Class.forName(org.postgresql.Driver.class.getCanonicalName());
-        dbConn = DriverManager.getConnection(jdbcUrl);
+        dbConn = DriverManager.getConnection(config.getDbJdbcUrl());
 
-        LOG.info("Setting up streams table '{}', if it doesn't exist yet...", streamsTableName);
+        LOG.info("Setting up streams table '{}', if it doesn't exist yet...", config.getStreamsTableName());
         try (Statement stmt = dbConn.createStatement()) {
-            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + streamsTableName + "(" +
+            stmt.executeUpdate("CREATE TABLE IF NOT EXISTS " + config.getStreamsTableName() + "(" +
                     "id SERIAL PRIMARY KEY," +
                     "channel VARCHAR NOT NULL," +
                     "channel_id VARCHAR NOT NULL," +
@@ -93,13 +80,13 @@ public class Bot extends ListenerAdapter {
 
         LOG.info("Connecting to Twitch API...");
         twitch = TwitchHelixBuilder.builder()
-                .withClientId(twitchClientId)
-                .withClientSecret(twitchClientSecret)
+                .withClientId(config.getTwitchClientId())
+                .withClientSecret(config.getTwitchClientSecret())
                 .build();
 
         LOG.info("Connecting to Kafka cluster...");
         Properties kafkaProps = new Properties();
-        kafkaProps.put("bootstrap.servers", kafkaBootstrapServer);
+        kafkaProps.put("bootstrap.servers", config.getKafkaBootstrapServers());
         kafkaProps.put("key.serializer", LongSerializer.class);
         kafkaProps.put("value.serializer", MessageSerializer.class);
         kafkaProps.put("linger.ms", 100);
@@ -107,7 +94,12 @@ public class Bot extends ListenerAdapter {
         producer = new KafkaProducer<>(kafkaProps);
 
         // Pircbot needs # in fron of the channel name
-        List<String> pircbotChannels = channels.stream().map(ch -> "#" + ch).collect(Collectors.toList());
+        List<String> pircbotChannels = config.getChannels().stream()
+                .map(ch -> {
+                    LOG.info("Will join channel #{}", ch);
+                    return "#" + ch;
+                })
+                .collect(Collectors.toList());
 
         org.pircbotx.Configuration config = new org.pircbotx.Configuration.Builder()
                 .setName("justinfan92834") // TODO: Make random?
@@ -137,7 +129,7 @@ public class Bot extends ListenerAdapter {
         m.username = event.getUser().getNick();
         m.message = event.getAction();
 
-        producer.send(new ProducerRecord<>(kafkaTopic, m.timestamp, m));
+        producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
     }
 
     @Override
@@ -151,7 +143,7 @@ public class Bot extends ListenerAdapter {
         m.username = event.getUser().getNick();
         m.message = event.getMessage();
 
-        producer.send(new ProducerRecord<>(kafkaTopic, m.timestamp, m));
+        producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
     }
 
     @Override
@@ -175,11 +167,12 @@ public class Bot extends ListenerAdapter {
         if (livestreams.values().stream().noneMatch(d -> (now - d.updatedAt() > STREAM_UPDATE_COOLDOWN_MILLIS)))
             return;
 
-        final String sql = "INSERT INTO " + streamsTableName + "(channel, channel_id, started_at, ended_at) " +
+        final String sql = "INSERT INTO " + config.getStreamsTableName() +
+                "(channel, channel_id, started_at, ended_at) " +
                 "VALUES(?, ?, to_timestamp(? * 0.001) at time zone utc, to_timestamp(? * 0.001) at time zone utc) " +
                 "ON CONFLICT DO UPDATE SET ended_at = excluded.ended_at";
         try (final PreparedStatement stmt = dbConn.prepareStatement(sql)) {
-            channels.forEach(channel -> {
+            config.getChannels().forEach(channel -> {
                 updateStreamInfo(channel, stream -> {
                     stmt.setString(1, channel);
                     stmt.setString(2, stream.getId());

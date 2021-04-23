@@ -2,19 +2,21 @@
 
 ## Setup
 
-1. Build app: `mvn package`
+1. Build app: `./gradlew build`
 
 2. Install dashboard dependencies: In `dashboard` directory, run `composer install`
 
-3. Run docker setup: `docker-compose up -d`
+3. Configure bot, by copying `bot.example.properties` to `bot.properties` and adjusting as needed.
 
-4. Submit app with `submit.sh`
+4. Start complete docker setup: `docker-compose up -d`
 
-5. The app will periodically fetch subscriber emotes for all channels that at least one message was received for.
+5. Once the Flink dashboard is up (http://localhost:8081), submit Flink Streaming Job with `submit.sh` 
 
-	* To add channels, update the `bot` section in `docker-compose.yml`.
+6. The app will periodically fetch subscriber emotes for all channels that at least one message was received for; as well as all globally known emotes (Twitch + BTTV + FFZ):
 
-	* To manually add emotes (e.g. non-subscriber emotes):
+	* To add channels, adjust the `channels` property in `bot.properties` and restart the bot with `docker-compose restart bot`
+
+	* To manually add emotes to track (e.g. from channels you don't want to track):
 
 		```
 		$ docker exec -ti tca_db psql -Upostgres -dtwitch
@@ -22,6 +24,8 @@
 		```
 
 The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
+
+To get into the Postgres shell, use `docker-compose exec -ti postgres psql -Upostgres -dtwitch`
 
 
 ## Flink Job
