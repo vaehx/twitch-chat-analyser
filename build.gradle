@@ -27,6 +27,7 @@ dependencies {
 	implementation "org.apache.flink:flink-connector-kafka_${flinkScalaVersion}:${flinkVersion}"
 	implementation "org.apache.flink:flink-metrics-dropwizard:${flinkVersion}"
 	implementation "com.github.pircbotx:pircbotx:2.2"
+	implementation 'com.github.twitch4j:twitch4j:1.2.1'
 	implementation 'org.postgresql:postgresql:42.2.14'
 	implementation 'org.json:json:20180130'
 	implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.13.3'

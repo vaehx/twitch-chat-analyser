@@ -15,7 +15,6 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.*;
 import java.util.*;
-import java.util.function.BiConsumer;
 
 public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
@@ -29,7 +28,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private transient long lastEmoteFetch;
     private transient Set<String> emotes;
 
-    private String jdbcUrl;
+    private final transient String jdbcUrl;
 
     public EmoteExtractor(String jdbcUrl) {
         this.jdbcUrl = jdbcUrl;
