@@ -9,7 +9,7 @@ services:
     container_name: tca_bot
     volumes:
       - ./bot.properties:/bot.properties:ro
-      - ./build/libs/twitch-chat-analyzer-1.1-SNAPSHOT.jar:/analyzer.jar:ro
+      - ./build/libs/twitch-chat-analyzer-1.1-SNAPSHOT-all.jar:/analyzer.jar:ro
     links:
       - kafka
     restart: always

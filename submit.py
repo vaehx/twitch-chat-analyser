@@ -16,7 +16,7 @@ def run_shell_command(command_arr):
 
 
 print('Copying jar into container...')
-run_shell_command(['docker', 'cp', './build/libs/twitch-chat-analyzer-1.1-SNAPSHOT.jar', 'tca_flink-jobmanager:/analyser.jar'])
+run_shell_command(['docker', 'cp', './build/libs/twitch-chat-analyzer-1.1-SNAPSHOT-all.jar', 'tca_flink-jobmanager:/analyser.jar'])
 
 print('Fixing permissions of data directories in container...')
 run_shell_command(['docker', 'exec', '-u', 'root', 'tca_flink-jobmanager', 'mkdir', '-p', '/data/checkpoints'])

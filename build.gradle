@@ -1,5 +1,6 @@
 plugins {
-	id 'java-library'
+	id 'com.github.johnrengelman.shadow' version '7.0.0'
+	id 'java'
 }
 
 group = 'de.prkz.twitch'
@@ -14,10 +15,6 @@ project.ext.mainClassName = 'de.prkz.twitch.emoteanalyser.EmoteAnalyser'
 def flinkVersion = '1.13.2'
 def flinkScalaVersion = '2.12'
 
-if (!hasProperty('mainClass')) {
-	ext.mainClass = "$mainClassName"
-}
-
 repositories {
 	mavenCentral()
 	maven { url 'https://jitpack.io'}
@@ -27,10 +24,14 @@ dependencies {
 	implementation "org.apache.flink:flink-connector-kafka_${flinkScalaVersion}:${flinkVersion}"
 	implementation "org.apache.flink:flink-metrics-dropwizard:${flinkVersion}"
 	implementation "com.github.pircbotx:pircbotx:2.2"
-	implementation 'com.github.twitch4j:twitch4j:1.2.1'
-	implementation 'org.postgresql:postgresql:42.2.14'
-	implementation 'org.json:json:20180130'
-	implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.13.3'
+
+	implementation 'com.github.twitch4j:twitch4j:1.5.0'
+	// Explicitly specifying this here is required because transitive dependency from twitch4j is broken in 1.5.0:
+	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.3'
+
+	implementation 'org.postgresql:postgresql:42.2.23'
+	implementation 'org.json:json:20210307'
+	implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.14.1'
 
 	compileOnly "org.apache.flink:flink-java:${flinkVersion}"
 	compileOnly "org.apache.flink:flink-core:${flinkVersion}"
@@ -38,18 +39,12 @@ dependencies {
 	compileOnly "org.apache.flink:flink-clients_${flinkScalaVersion}:${flinkVersion}"
 }
 
-jar {
-	manifest {
-		attributes(
-				//'Class-Path': configurations.implementation.collect { it.getName() }.join(' '),
-				'Main-Class': "$mainClassName",
-				'Implementation-Title': project.name,
-				'Implementation-Version': project.version
-		)
-	}
+shadowJar {
+	mergeServiceFiles()
 
-	from {
-		configurations.runtimeClasspath.findAll { it.name.endsWith('jar') }.collect { zipTree(it) }
-		//configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	manifest {
+		attributes 'Main-Class': "$mainClassName"
 	}
 }
+
+tasks.build.dependsOn tasks.shadowJar
