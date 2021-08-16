@@ -28,7 +28,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private transient long lastEmoteFetch;
     private transient Set<String> emotes;
 
-    private final transient String jdbcUrl;
+    private final String jdbcUrl;
 
     public EmoteExtractor(String jdbcUrl) {
         this.jdbcUrl = jdbcUrl;
