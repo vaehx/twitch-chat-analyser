@@ -7,9 +7,7 @@ import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.runtime.state.StateBackend;
-import org.apache.flink.runtime.state.filesystem.FsStateBackend;
-import org.apache.flink.streaming.api.TimeCharacteristic;
+import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
@@ -36,8 +34,8 @@ public class EmoteAnalyser {
 
         // Parse arguments
         if (args.length < 5) {
-            System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <kafka-topic> <aggregation-interval-ms> " +
-                    "<trigger-interval-ms>");
+            System.out.println("Arguments: <jdbcUrl> <kafka-bootstrap-server> <kafka-topic> " +
+                    "<aggregation-interval-ms> <trigger-interval-ms>");
             System.exit(1);
         }
 
@@ -54,11 +52,11 @@ public class EmoteAnalyser {
 
         // Create stream environment
         final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-        env.setStreamTimeCharacteristic(TimeCharacteristic.EventTime);
 
         // Synchronous checkpoints to local file system
         env.enableCheckpointing(CHECKPOINT_INTERVAL_MS);
-        env.setStateBackend((StateBackend) new FsStateBackend("file:///data/checkpoints", false));
+        env.setStateBackend(new HashMapStateBackend());
+        env.getCheckpointConfig().setCheckpointStorage("file:///data/checkpoints");
 
         env.setRestartStrategy(RestartStrategies.failureRateRestart(
                 5, org.apache.flink.api.common.time.Time.minutes(1), Time.seconds(5)));
