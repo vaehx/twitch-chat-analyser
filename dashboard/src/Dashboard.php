@@ -51,6 +51,6 @@ class Dashboard extends SilexApplication
                 return 'Other';
         }));
 
-        $this['db'] = new \PDO("pgsql:dbname=twitch;host=timescaledb", "postgres", "password");
+        $this['db'] = new \PDO("pgsql:dbname=twitch;host=postgres", "postgres", "password");
     }
 }
