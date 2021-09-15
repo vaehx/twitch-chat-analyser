@@ -354,6 +354,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         // Channels table
         stmt.execute("CREATE TABLE IF NOT EXISTS " + CHANNELS_TABLE_NAME + "(" +
                 "channel VARCHAR NOT NULL," +
-                "emote_set INT NOT NULL)");
+                "emote_set INT NOT NULL," +
+                "hidden BOOLEAN NOT NULL DEFAULT false)");
     }
 }

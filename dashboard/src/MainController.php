@@ -11,6 +11,7 @@ class MainController implements ControllerProviderInterface
 {
     const EXCLUDED_CHATTERS = ["nightbot", "notheowner", "scootycoolguy"];
 
+    const CHANNELS_TABLE = "channels";
     const EMOTES_TABLE = "emotes";
     const CHANNEL_STATS_TABLE = "channel_stats";
     const USER_STATS_TABLE = "user_stats";
@@ -37,7 +38,8 @@ class MainController implements ControllerProviderInterface
             }
 
             // Get channel meta
-            $stmt = $db->query("SELECT DISTINCT channel AS name, messages FROM ".self::CHANNEL_STATS_TABLE." WHERE timestamp = 0");
+            $stmt = $db->query("SELECT DISTINCT channel AS name, messages FROM ".self::CHANNEL_STATS_TABLE." WHERE timestamp = 0"
+                    ." AND ".self::getHiddenChannelsCondition());
             if ($stmt === false)
                 $app->abort(500, "Query error: " . $db->errorInfo()[2]);
             $channels = $stmt->fetchAll();
@@ -99,7 +101,7 @@ class MainController implements ControllerProviderInterface
             }
 
             // Get channel info
-            $stmt = $db->prepare("SELECT * FROM channel_stats WHERE channel = :channel AND timestamp = 0");
+            $stmt = $db->prepare("SELECT * FROM channel_stats WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND timestamp = 0");
             $stmt->execute(array(':channel' => $channel));
             if ($stmt->rowCount() == 0)
                 $app->abort(404, "No data found for that channel");
@@ -228,7 +230,8 @@ class MainController implements ControllerProviderInterface
         $route->get('/channel/{channel}/emotes', function(Request $request, $channel) use($app, $db) {
             // Real occurrences (including all chatters)
             $stmt = $db->prepare("SELECT emotes.emote, type, occurrences FROM emotes
-                                LEFT JOIN (SELECT channel, emote, occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0) es
+                                LEFT JOIN (SELECT channel, emote, occurrences FROM emote_stats
+                                        WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND timestamp = 0) es
                                     ON es.emote=emotes.emote
                                 WHERE occurrences > 0
                                 ORDER BY es.occurrences DESC");
@@ -316,7 +319,8 @@ class MainController implements ControllerProviderInterface
 
             // Get emote stats
             $stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::EMOTE_STATS_TABLE
-                            . " WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND emote = :emote"
+                            . "    AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " ORDER BY timestamp ASC");
 
             $res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
@@ -330,7 +334,8 @@ class MainController implements ControllerProviderInterface
             // Get total occurrences
             $stmt = $db->prepare("SELECT SUM(total_occurrences) FROM ("
                             . "   SELECT MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-                            . "   WHERE channel = :channel AND emote = :emote AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . "   WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND emote = :emote"
+                            . "      AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . "   GROUP BY username) a");
 
             $res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
@@ -341,7 +346,8 @@ class MainController implements ControllerProviderInterface
 
             // Leaderboard
             $stmt = $db->prepare("SELECT username, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-                            . " WHERE channel = :channel AND emote = :emote AND username NOT IN " . self::getExcludedChattersTuple() . " AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND emote = :emote"
+                            . "    AND username NOT IN " . self::getExcludedChattersTuple() . " AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " GROUP BY username ORDER BY MAX(total_occurrences) DESC LIMIT 1000");
 
             $res = $stmt->execute(array(':channel' => $channel, ':emote' => $emote, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
@@ -391,7 +397,8 @@ class MainController implements ControllerProviderInterface
 
             // Get stats
             $stmt = $db->prepare("SELECT timestamp, total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE
-                            . " WHERE channel = :channel AND emote = :emote AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND emote = :emote"
+                            . "     AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " ORDER BY timestamp ASC");
 
             $res = $stmt->execute(array(
@@ -429,7 +436,7 @@ class MainController implements ControllerProviderInterface
             $max_rank = $request->query->get('max', 100);
 
             $stmt = $db->prepare("SELECT username, messages FROM ".self::USER_STATS_TABLE
-                            . " WHERE channel = :channel AND timestamp = 0"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND timestamp = 0"
                             . " ORDER BY messages DESC LIMIT :limit");
 
             $res = $stmt->execute(array(':channel' => $channel, ':limit' => $max_rank + count(self::EXCLUDED_CHATTERS)));
@@ -470,7 +477,8 @@ class MainController implements ControllerProviderInterface
 
             // User message count stats
             $stmt = $db->prepare("SELECT timestamp, total_messages FROM ".self::USER_STATS_TABLE.""
-                            . " WHERE channel = :channel AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND username = :username"
+                            . "     AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " ORDER BY timestamp ASC");
 
             $res = $stmt->execute(array(':channel' => $channel, ':username' => $username, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
@@ -486,7 +494,8 @@ class MainController implements ControllerProviderInterface
 
             // Emote leaderboard for this user
             $stmt = $db->prepare("SELECT emote, MAX(total_occurrences) AS total_occurrences FROM ".self::USER_EMOTE_STATS_TABLE.""
-                            . " WHERE channel = :channel AND username = :username AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
+                            . " WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND username = :username"
+                            . "     AND timestamp >= :windowStartTime AND timestamp <= :windowEndTime"
                             . " GROUP BY emote ORDER BY MAX(total_occurrences) DESC");
 
             $res = $stmt->execute(array(':channel' => $channel, ':username' => $username, ':windowStartTime' => $windowStartTime, ':windowEndTime' => $windowEndTime));
@@ -724,5 +733,11 @@ class MainController implements ControllerProviderInterface
     {
         $date = DateTime::createFromFormat(self::HTML_INPUT_DATETIME_FORMAT, $text);
         return $date->getTimestamp() * 1000;
+    }
+
+
+    private static function getHiddenChannelsCondition($column = 'channel')
+    {
+        return $column." IN (SELECT channel FROM ".self::CHANNELS_TABLE." WHERE hidden IS false)";
     }
 }

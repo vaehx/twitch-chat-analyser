@@ -13,6 +13,7 @@ class ApiController implements ControllerProviderInterface
     const USER_STATS_TABLE = "user_stats";
     const EMOTE_STATS_TABLE = "emote_stats";
     const USER_EMOTE_STATS_TABLE = "user_emote_stats";
+    const CHANNELS_TABLE = "channels";
 
     public function connect(SilexApplication $app)
     {
@@ -27,7 +28,8 @@ class ApiController implements ControllerProviderInterface
          * Emote statistics
          */
         $route->get('/emote_stats', function(Request $request) use($app, $db) {
-            $sql = "SELECT channel, emote, occurrences FROM " . self::EMOTE_STATS_TABLE . " WHERE timestamp = 0";
+            $sql = "SELECT channel, emote, occurrences FROM " . self::EMOTE_STATS_TABLE . " WHERE timestamp = 0".
+                " AND " . self::getHiddenChannelsCondition();
             $params = array();
             if ($request->query->has('emotes'))
             {
@@ -69,7 +71,8 @@ class ApiController implements ControllerProviderInterface
             $result = ['channels' => []];
 
             // Get total message count in each channel
-            $stmt = $db->prepare("SELECT channel, messages FROM user_stats WHERE username = :username AND timestamp = 0");
+            $stmt = $db->prepare("SELECT channel, messages FROM user_stats WHERE username = :username AND timestamp = 0"
+                ." AND " . self::getHiddenChannelsCondition());
             $res = $stmt->execute(array(':username' => $username));
 
             if ($res === false || $stmt->rowCount() == 0)
@@ -79,7 +82,9 @@ class ApiController implements ControllerProviderInterface
                 $result['channels'][$row['channel']] = ['messages' => $row['messages']];
 
             // Get last seen time
-            $stmt = $db->prepare("SELECT channel, MAX(timestamp) AS last_seen FROM user_stats WHERE username = :username GROUP BY channel");
+            $stmt = $db->prepare("SELECT channel, MAX(timestamp) AS last_seen FROM user_stats WHERE username = :username"
+                ." AND " . self::getHiddenChannelsCondition()
+                ." GROUP BY channel");
             $res = $stmt->execute(array(':username' => $username));
 
             if ($res === false || $stmt->rowCount() == 0)
@@ -100,7 +105,8 @@ class ApiController implements ControllerProviderInterface
             $stmt = $db->prepare("SELECT c.channel, s.occurrences FROM ("
                 ."SELECT DISTINCT channel FROM channel_stats) AS c "
                 ."LEFT JOIN (SELECT channel, occurrences FROM user_emote_stats WHERE emote = :emote AND username = :username AND timestamp = 0) AS s "
-                ."ON c.channel = s.channel");
+                ."ON c.channel = s.channel "
+                ."WHERE " . self::getHiddenChannelsCondition('c.channel'));
             $res = $stmt->execute(array(':username' => $username, ':emote' => $emote));
 
             if ($res === false)
@@ -117,7 +123,7 @@ class ApiController implements ControllerProviderInterface
          */
         $route->get('/channels', function() use($app, $db) {
             $result = [];
-            $stmt = $db->prepare("SELECT channel, messages FROM channel_stats WHERE timestamp = 0");
+            $stmt = $db->prepare("SELECT channel, messages FROM channel_stats WHERE timestamp = 0 AND " . self::getHiddenChannelsCondition());
             $res = $stmt->execute([]);
 
             if ($res === false)
@@ -136,7 +142,7 @@ class ApiController implements ControllerProviderInterface
             $result = [];
             
             // Get latest message counts
-            $stmt = $db->prepare("SELECT messages FROM channel_stats WHERE channel = :channel AND timestamp = 0");
+            $stmt = $db->prepare("SELECT messages FROM channel_stats WHERE channel = :channel AND " . self::getHiddenChannelsCondition() . " AND timestamp = 0");
             $res = $stmt->execute(array(':channel' => $channel));
 
             if ($res === false || $stmt->rowCount() == 0)
@@ -155,6 +161,7 @@ class ApiController implements ControllerProviderInterface
 
             date_default_timezone_set('Europe/Berlin');
             $now = time() * 1000;
+            // No need for hidden channels filter here, since it's filtered already above
             $stmt = $db->prepare('SELECT SUM(messages) AS messages FROM channel_stats WHERE channel = :channel AND timestamp > :t');
             foreach ($times as $name => $dt)
             {
@@ -172,6 +179,7 @@ class ApiController implements ControllerProviderInterface
 
             // Top n emotes
             $n = 10;
+            // No need for hidden channels filter here, since it's filtered already above
             $stmt = $db->prepare("SELECT emote, occurrences FROM emote_stats WHERE channel = :channel AND timestamp = 0 ORDER BY occurrences DESC LIMIT $n");
             $res = $stmt->execute(array(':channel' => $channel));
 
@@ -186,5 +194,11 @@ class ApiController implements ControllerProviderInterface
         })->bind('api_channel');
 
         return $route;
+    }
+
+
+    private static function getHiddenChannelsCondition($column = 'channel')
+    {
+        return $column." IN (SELECT channel FROM ".self::CHANNELS_TABLE." WHERE hidden IS false)";
     }
 }
