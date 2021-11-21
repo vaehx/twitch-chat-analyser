@@ -95,8 +95,12 @@ public class EmoteAnalyser {
         // Extract emotes from messages
         EmoteExtractor emoteExtractor = new EmoteExtractor(
                 config.getDbJdbcUrl(),
+                config.getDbEmotesTableName(),
+                config.getDbChannelsTableName(),
                 config.getTwitchClientId(),
-                config.getTwitchClientSecret());
+                config.getTwitchClientSecret(),
+                config.getEmoteFetchIntervalMillis(),
+                config.getEmoteFetchTimeoutMillis());
         emoteExtractor.prepareTables(stmt);
         DataStream<Emote> emotes = messages
                 .flatMap(emoteExtractor)

@@ -36,6 +36,11 @@ public class CommonConfig {
         return props.getProperty(KEY_DB_JDBC_URL);
     }
 
+    public static final String KEY_DB_CHANNELS_TABLE_NAME = "db.channels.table-name";
+    public String getDbChannelsTableName() {
+        return props.getProperty(KEY_DB_CHANNELS_TABLE_NAME, "channels");
+    }
+
     public static final String KEY_KAFKA_BOOTSTRAP_SERVERS = "kafka.bootstrap-servers";
     public String getKafkaBootstrapServers() {
         return props.getProperty(KEY_KAFKA_BOOTSTRAP_SERVERS);
@@ -55,6 +60,9 @@ public class CommonConfig {
 
         if (getDbJdbcUrl() == null || getDbJdbcUrl().isEmpty())
             throw new InvalidConfigException("Missing or invalid " + KEY_DB_JDBC_URL);
+
+        if (getDbChannelsTableName() == null || getDbChannelsTableName().isEmpty())
+            throw new InvalidConfigException("Missing or invalid " + KEY_DB_CHANNELS_TABLE_NAME);
 
         if (getKafkaBootstrapServers() == null || getKafkaBootstrapServers().isEmpty())
             throw new InvalidConfigException("Missing or invalid " + KEY_KAFKA_BOOTSTRAP_SERVERS);

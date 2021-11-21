@@ -20,10 +20,6 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private static final Logger LOG = LoggerFactory.getLogger(EmoteExtractor.class);
 
-    private static final String EMOTES_TABLE_NAME = "emotes";
-    private static final String CHANNELS_TABLE_NAME = "channels";
-    private static final long EMOTE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
-    private static final int EMOTE_FETCH_TIMEOUT_MS = 20 * 1000;
     private transient long lastEmoteFetch;
     private transient Set<String> emotes;
     private transient Map<String, Channel> channels;
@@ -31,13 +27,27 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private transient List<EmoteProvider> emoteProviders;
 
     private final String jdbcUrl;
+    private final String emotesTableName;
+    private final String channelsTableName;
     private final String twitchClientId;
     private final String twitchClientSecret;
+    private final int emoteFetchIntervalMillis;
+    private final int emoteFetchTimeoutMillis;
 
-    public EmoteExtractor(String jdbcUrl, String twitchClientId, String twitchClientSecret) {
+    public EmoteExtractor(String jdbcUrl,
+                          String emotesTableName,
+                          String channelsTableName,
+                          String twitchClientId,
+                          String twitchClientSecret,
+                          int emoteFetchIntervalMillis,
+                          int emoteFetchTimeoutMillis) {
         this.jdbcUrl = jdbcUrl;
+        this.emotesTableName = emotesTableName;
+        this.channelsTableName = channelsTableName;
         this.twitchClientId = twitchClientId;
         this.twitchClientSecret = twitchClientSecret;
+        this.emoteFetchIntervalMillis = emoteFetchIntervalMillis;
+        this.emoteFetchTimeoutMillis = emoteFetchTimeoutMillis;
     }
 
     @Override
@@ -48,10 +58,10 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
                 .build();
 
         emoteProviders = Arrays.asList(
-                new TwitchEmoteProvider(twitch, EMOTE_FETCH_TIMEOUT_MS),
-                new BTTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
-                new FFZEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
-                new SevenTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS)
+                new TwitchEmoteProvider(twitch, emoteFetchTimeoutMillis),
+                new BTTVEmoteProvider(emoteFetchTimeoutMillis),
+                new FFZEmoteProvider(emoteFetchTimeoutMillis),
+                new SevenTVEmoteProvider(emoteFetchTimeoutMillis)
         );
 
         emotes = new HashSet<>();
@@ -71,7 +81,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         }
 
         long time = System.currentTimeMillis();
-        if (time - lastEmoteFetch > EMOTE_REFRESH_INTERVAL_MS) {
+        if (time - lastEmoteFetch > emoteFetchIntervalMillis) {
             try {
                 reloadEmotes();
             } finally {
@@ -154,7 +164,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
             // Re-fetch all emotes from table
             emotes.clear();
 
-            try (ResultSet result = stmt.executeQuery("SELECT emote FROM " + EMOTES_TABLE_NAME)) {
+            try (ResultSet result = stmt.executeQuery("SELECT emote FROM " + emotesTableName)) {
                 while (result.next()) {
                     emotes.add(result.getString(1));
                 }
@@ -170,7 +180,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private void synchronizeChannelsWithDatabase(Connection conn) throws SQLException {
         // Fetch existing channels from DB
         try (Statement stmt = conn.createStatement(); ResultSet channelsResult =
-                stmt.executeQuery("SELECT channel, broadcaster_id FROM " + CHANNELS_TABLE_NAME)) {
+                stmt.executeQuery("SELECT channel, broadcaster_id FROM " + channelsTableName)) {
             while (channelsResult.next()) {
                 String channelName = channelsResult.getString("channel").toLowerCase();
                 String broadcasterId = channelsResult.getString("broadcaster_id");
@@ -187,7 +197,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         }
 
         // Add newly seen channels to DB and/or fetch missing broadcaster ID
-        String sql = "INSERT INTO " + CHANNELS_TABLE_NAME + "(channel, broadcaster_id)\n" +
+        String sql = "INSERT INTO " + channelsTableName + "(channel, broadcaster_id)\n" +
                 "VALUES(?, ?)\n" +
                 "ON CONFLICT(channel) DO UPDATE SET broadcaster_id = EXCLUDED.broadcaster_id";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -235,7 +245,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private void insertNewEmotes(Connection conn, Collection<String> emotes, EmoteType type, Channel channel)
             throws Exception {
-        String sql = "INSERT INTO " + EMOTES_TABLE_NAME + "(emote, type, channel) " +
+        String sql = "INSERT INTO " + channelsTableName + "(emote, type, channel) " +
                 "VALUES(?, ?, ?) " +
                 "ON CONFLICT(emote) DO NOTHING";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -253,14 +263,14 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     public void prepareTables(Statement stmt) throws SQLException {
         // For emote type, see EmoteType enum
-        stmt.execute("CREATE TABLE IF NOT EXISTS " + EMOTES_TABLE_NAME + "(" +
+        stmt.execute("CREATE TABLE IF NOT EXISTS " + emotesTableName + "(" +
                 "emote VARCHAR NOT NULL," +
                 "type SMALLINT NOT NULL DEFAULT 0," +
                 "channel VARCHAR," + // null if global
                 "PRIMARY KEY(emote))");
 
         // If table is empty, insert some default emotes, so we have something to track
-        try (ResultSet emoteCountResult = stmt.executeQuery("SELECT COUNT(emote) FROM " + EMOTES_TABLE_NAME)) {
+        try (ResultSet emoteCountResult = stmt.executeQuery("SELECT COUNT(emote) FROM " + emotesTableName)) {
             emoteCountResult.next();
             if (emoteCountResult.getInt(1) == 0) {
                 stmt.execute("INSERT INTO emotes(emote, type) VALUES('Kappa', 1), ('PogChamp', 1), ('DansGame', 1);");
@@ -269,7 +279,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
 
         // Channels table
-        stmt.execute("CREATE TABLE IF NOT EXISTS " + CHANNELS_TABLE_NAME + "(" +
+        stmt.execute("CREATE TABLE IF NOT EXISTS " + channelsTableName + "(" +
                 "channel VARCHAR NOT NULL PRIMARY KEY," +
                 "broadcaster_id VARCHAR," +
                 "hidden BOOLEAN NOT NULL DEFAULT false)");
