@@ -25,9 +25,7 @@ dependencies {
 	implementation "org.apache.flink:flink-metrics-dropwizard:${flinkVersion}"
 	implementation "com.github.pircbotx:pircbotx:2.2"
 
-	implementation 'com.github.twitch4j:twitch4j:1.5.0'
-	// Explicitly specifying this here is required because transitive dependency from twitch4j is broken in 1.5.0:
-	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.12.3'
+	implementation 'com.github.twitch4j:twitch4j:1.6.0'
 
 	implementation 'org.postgresql:postgresql:42.2.23'
 	implementation 'org.json:json:20210307'

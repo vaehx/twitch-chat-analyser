@@ -47,7 +47,13 @@ public class FFZEmoteProvider extends EmoteProvider {
     @Override
     public EmoteFetchResult fetchChannelEmotes(Channel channel) throws Exception {
         URL url = new URL(FFZ_API_BASEURL + "/room/" + channel.name);
-        String response = getJSONHttp(url);
+        String response;
+        try {
+            response = getJSONHttp(url);
+        } catch (NotFoundHttpException e) {
+            // FFZ returns 404 not found if a channel is not registered / doesn't use ffz
+            return null;
+        }
 
         Set<String> emotes = new HashSet<>();
 

@@ -1,5 +1,10 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
+import com.github.twitch4j.helix.TwitchHelix;
+import com.github.twitch4j.helix.TwitchHelixBuilder;
+import com.github.twitch4j.helix.domain.ChannelSearchList;
+import com.github.twitch4j.helix.domain.ChannelSearchResult;
+import com.netflix.hystrix.exception.HystrixRuntimeException;
 import de.prkz.twitch.emoteanalyser.Message;
 import de.prkz.twitch.emoteanalyser.emote.provider.*;
 import org.apache.flink.api.common.functions.RichFlatMapFunction;
@@ -21,34 +26,57 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private static final int EMOTE_FETCH_TIMEOUT_MS = 20 * 1000;
     private transient long lastEmoteFetch;
     private transient Set<String> emotes;
+    private transient Map<String, Channel> channels;
+    private transient TwitchHelix twitch;
+    private transient List<EmoteProvider> emoteProviders;
 
     private final String jdbcUrl;
-    private final List<EmoteProvider> emoteProviders;
+    private final String twitchClientId;
+    private final String twitchClientSecret;
 
-
-    public EmoteExtractor(String jdbcUrl, String twitchClientId) {
+    public EmoteExtractor(String jdbcUrl, String twitchClientId, String twitchClientSecret) {
         this.jdbcUrl = jdbcUrl;
-        this.emoteProviders = Arrays.asList(
-                new TwitchEmoteProvider(twitchClientId, EMOTE_FETCH_TIMEOUT_MS),
-                new BTTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
-                new FFZEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
-                new SevenTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS)
-        );
+        this.twitchClientId = twitchClientId;
+        this.twitchClientSecret = twitchClientSecret;
     }
 
     @Override
     public void open(Configuration parameters) throws Exception {
+        twitch = TwitchHelixBuilder.builder()
+                .withClientId(twitchClientId)
+                .withClientSecret(twitchClientSecret)
+                .build();
+
+        emoteProviders = Arrays.asList(
+                new TwitchEmoteProvider(twitch, EMOTE_FETCH_TIMEOUT_MS),
+                new BTTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
+                new FFZEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
+                new SevenTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS)
+        );
+
         emotes = new HashSet<>();
+        channels = new HashMap<>();
         reloadEmotes();
         lastEmoteFetch = System.currentTimeMillis();
     }
 
     @Override
     public void flatMap(Message message, Collector<Emote> collector) throws Exception {
+        String channelName = message.channel.toLowerCase();
+        if (!channels.containsKey(channelName)) {
+            channels.put(channelName, new Channel(channelName));
+
+            // Force emote reload
+            lastEmoteFetch = 0;
+        }
+
         long time = System.currentTimeMillis();
         if (time - lastEmoteFetch > EMOTE_REFRESH_INTERVAL_MS) {
-            reloadEmotes();
-            lastEmoteFetch = time;
+            try {
+                reloadEmotes();
+            } finally {
+                lastEmoteFetch = time;
+            }
         }
 
         String[] words = message.message.split("\\s+");
@@ -98,32 +126,28 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
                 insertNewEmotes(conn, result.getEmotes(), result.getEmoteType(), null);
             }
 
-
-            // Fetch tracked channels from DB
-            List<Channel> channels = new ArrayList<>();
-            try (ResultSet channelsResult =
-                         stmt.executeQuery("SELECT channel, emote_set FROM " + CHANNELS_TABLE_NAME)) {
-                while (channelsResult.next()) {
-                    channels.add(new Channel(channelsResult.getString("channel"), channelsResult.getInt("emote_set")));
-                }
-            }
-
             // Check for new channel emotes
-            for (Channel channel : channels) {
+            synchronizeChannelsWithDatabase(conn);
+            for (Channel channel : channels.values()) {
                 for (EmoteProvider provider : emoteProviders) {
                     EmoteFetchResult result;
                     try {
                         result = provider.fetchChannelEmotes(channel);
                     } catch (Exception e) {
-                        LOG.error("Could not fetch channel emotes from provider {}",
-                                provider.getClass().getCanonicalName(), e);
+                        LOG.error("Could not fetch channel emotes for channel '{}' from provider {}",
+                                channel.name, provider.getClass().getCanonicalName(), e);
                         continue;
                     }
 
-                    LOG.info("Fetched {} emotes from provider {} in channel '{}'", result.getEmotes().size(),
-                            provider.getClass().getCanonicalName(), channel.name);
+                    if (result != null) {
+                        LOG.info("Fetched {} emotes from provider {} in channel '{}'", result.getEmotes().size(),
+                                provider.getClass().getCanonicalName(), channel.name);
 
-                    insertNewEmotes(conn, result.getEmotes(), result.getEmoteType(), result.getChannel());
+                        insertNewEmotes(conn, result.getEmotes(), result.getEmoteType(), result.getChannel());
+                    } else {
+                        LOG.info("There are no channel emotes for channel '{}' in provider {}",
+                                channel.name, provider.getClass().getCanonicalName());
+                    }
                 }
             }
 
@@ -140,6 +164,72 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
             LOG.info("Updated emote table in {} ms. Now using {} emotes in {} known channels",
                     duration, emotes.size(), channels.size());
+        }
+    }
+
+    private void synchronizeChannelsWithDatabase(Connection conn) throws SQLException {
+        // Fetch existing channels from DB
+        try (Statement stmt = conn.createStatement(); ResultSet channelsResult =
+                stmt.executeQuery("SELECT channel, broadcaster_id FROM " + CHANNELS_TABLE_NAME)) {
+            while (channelsResult.next()) {
+                String channelName = channelsResult.getString("channel").toLowerCase();
+                String broadcasterId = channelsResult.getString("broadcaster_id");
+
+                Channel channel = channels.get(channelName);
+                if (channel == null) {
+                    channel = new Channel(channelName);
+                    channels.put(channelName, channel);
+                }
+
+                if (channel.broadcasterId == null)
+                    channel.broadcasterId = broadcasterId;
+            }
+        }
+
+        // Add newly seen channels to DB and/or fetch missing broadcaster ID
+        String sql = "INSERT INTO " + CHANNELS_TABLE_NAME + "(channel, broadcaster_id)\n" +
+                "VALUES(?, ?)\n" +
+                "ON CONFLICT(channel) DO UPDATE SET broadcaster_id = EXCLUDED.broadcaster_id";
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (Channel channel : channels.values()) {
+                // Newly seen channels also have broadcastId == null
+                if (channel.broadcasterId == null) {
+                    channel.broadcasterId = fetchTwitchBroadcasterId(channel.name);
+                    if (channel.broadcasterId != null) {
+                        stmt.setString(1, channel.name);
+                        stmt.setString(2, channel.broadcasterId);
+                        stmt.executeUpdate();
+                    }
+                }
+            }
+        }
+    }
+
+    private String fetchTwitchBroadcasterId(String channelName) {
+        if (channelName == null)
+            throw new IllegalArgumentException("channelName is null");
+
+        ChannelSearchList channelSearchList;
+        try {
+            channelSearchList = twitch.searchChannels(null, channelName, 1, null, false).execute();
+        } catch (HystrixRuntimeException e) {
+            LOG.error("Error while trying to fetch broadcaster id for channel '" + channelName + "'", e);
+            return null;
+        }
+
+        String broadcasterId = null;
+        if (!channelSearchList.getResults().isEmpty()) {
+            ChannelSearchResult broadcaster = channelSearchList.getResults().get(0);
+            if (broadcaster.getBroadcasterLogin().equalsIgnoreCase(channelName))
+                broadcasterId = broadcaster.getId();
+        }
+
+        if (broadcasterId != null) {
+            LOG.info("Found broadcasterId = {} for channel '{}'", broadcasterId, channelName);
+            return broadcasterId;
+        } else {
+            LOG.warn("Channel '{}' has no broadcaster id yet, but we couldn't find it either", channelName);
+            return null;
         }
     }
 
@@ -180,8 +270,8 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
         // Channels table
         stmt.execute("CREATE TABLE IF NOT EXISTS " + CHANNELS_TABLE_NAME + "(" +
-                "channel VARCHAR NOT NULL," +
-                "emote_set INT NOT NULL," +
+                "channel VARCHAR NOT NULL PRIMARY KEY," +
+                "broadcaster_id VARCHAR," +
                 "hidden BOOLEAN NOT NULL DEFAULT false)");
     }
 }

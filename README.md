@@ -4,43 +4,44 @@
 
 Create a Twitch App if you haven't already (https://dev.twitch.tv/console/apps/create) and keep the client-id and client secret ready.
 
-1. Build app: `./gradlew build`
+1. Build app:
 
-2. Install dashboard dependencies: In `dashboard` directory, run `composer install`
+	```
+	./gradlew build
+	```
 
-3. Configure bot by copying `bot.example.properties` to `bot.properties` and adjusting as needed.
+2. Configure the chat bot by copying `bot.example.properties` to `bot.properties` and adjusting as needed.
 
-4. Configure Flink job by copying `job.example.properties` to `job.properties` and adjusting as needed.
+3. Configure the Flink job by copying `job.example.properties` to `job.properties` and adjusting as needed.
 
-5. Start complete docker setup: `docker-compose up -d`
+4. Start complete docker setup:
 
-6. Once the Flink dashboard is up (http://localhost:8081), submit Flink Streaming Job with `submit.py`
+	```
+	docker-compose up -d
+	```
 
-7. The app will periodically fetch subscriber emotes for all channels in the `channels` table; as well as all globally known emotes (Twitch + BTTV + FFZ + 7TV):
+5. Once the Flink dashboard is up (http://localhost:8081), submit the Flink Streaming Job by running
 
-	* Unfortunately, you currently have to figure out the emote set ID you want to track manually. You can do this buy (re-)loading the channel page while having the
-	  Network tab open with the browser's developer console. The Emote Set will be somewhere hidden in a GQL request. You can start by searching (Ctrl+F) for `emoteSetID` or a specific emote of that channel. You may also try to search for `availableEmoteSets` and dig through it's contents.
-	  
-	  Note that some channels even have multiple emote sets, e.g. for different subscription tiers. Unfortunately, this analyser currently has no clean support for that.
+	```
+	python3 submit.py
+	```
 
-	  Once you have the emote set id, add the channel, e.g.:
+	Processing results will then be periodically written to the database.
 
-	  ```
-	  INSERT INTO channels(channel, emote_set) VALUES('lirik', 27);
-	  ```
+6. If you want to use the Web-UI / REST API, run:
 
-	* To add channels, adjust the `channels` property in `bot.properties` and restart the bot with `docker-compose restart bot`
+	```
+	docker-compose exec dashboard composer install
+	```
 
-	* To manually add emotes to track (e.g. from channels you don't want to track):
+	The Webinterface will be available at http://localhost:8082.
 
-		```
-		$ docker exec -ti tca_db psql -Upostgres -dtwitch
-		twitch=# INSERT INTO emotes(name) VALUES ('Kappa'), ('PogChamp'), ...;
-		```
 
-The Flink Web Panel will be available at `localhost:8081`. The dashboard is available at `localhost:8082`.
+> The Flink job will periodically fetch global emotes and channel emotes for all channels that the Bot listens to. This includes global-/channel-emotes from Twitch, BTTV, FFZ and 7TV. The twitch emote provider uses the Helix API to also fetch follower emotes, etc.
 
-To get into the Postgres shell, use `docker-compose exec -ti postgres psql -Upostgres -dtwitch`
+> To add a new twitch channel, simply add it to the `channels` setting in the `bot.properties` file.
+
+> To get into the Postgres shell, use `docker-compose exec -ti postgres psql -Upostgres -dtwitch`
 
 
 ## Flink Job

@@ -8,7 +8,6 @@ import de.prkz.twitch.emoteanalyser.Dated;
 import de.prkz.twitch.emoteanalyser.Message;
 import de.prkz.twitch.emoteanalyser.MessageSerializer;
 import de.prkz.twitch.emoteanalyser.ThrowingConsumer;
-import de.prkz.twitch.emoteanalyser.config.Config;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
@@ -31,7 +30,7 @@ public class Bot extends ListenerAdapter {
 
     private static final Logger LOG = LoggerFactory.getLogger(Bot.class);
 
-    private final Config config;
+    private final BotConfig config;
     private KafkaProducer<Long, Message> producer;
     private TwitchHelix twitch;
     private final Map<String, Dated<ChannelSearchResult>> livestreams = new HashMap<>();
@@ -50,14 +49,13 @@ public class Bot extends ListenerAdapter {
             System.exit(1);
         }
 
-        final Config config = Config.parse(Paths.get(args[0]));
-
+        final BotConfig config = new BotConfig(Paths.get(args[0]));
         final Bot bot = new Bot(config);
         bot.start();
     }
 
 
-    public Bot(Config config) {
+    public Bot(BotConfig config) {
         this.config = config;
     }
 

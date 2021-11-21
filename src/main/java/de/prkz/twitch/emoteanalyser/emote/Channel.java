@@ -3,11 +3,18 @@ package de.prkz.twitch.emoteanalyser.emote;
 public class Channel {
 
     public String name;
-    public int emoteSet;
+    public String broadcasterId;
 
-    public Channel(String name, int emoteSet) {
+    public Channel(String name, String broadcasterId) {
+        if (name == null)
+            throw new IllegalArgumentException("name is null");
+
         this.name = name;
-        this.emoteSet = emoteSet;
+        this.broadcasterId = broadcasterId;
+    }
+
+    public Channel(String name) {
+        this(name, null);
     }
 
     @Override

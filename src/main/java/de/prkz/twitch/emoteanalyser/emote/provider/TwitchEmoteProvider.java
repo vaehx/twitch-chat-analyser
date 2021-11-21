@@ -1,43 +1,77 @@
 package de.prkz.twitch.emoteanalyser.emote.provider;
 
+import com.github.twitch4j.helix.TwitchHelix;
+import com.github.twitch4j.helix.domain.Emote;
+import com.github.twitch4j.helix.domain.EmoteList;
+import com.netflix.hystrix.exception.HystrixRuntimeException;
 import de.prkz.twitch.emoteanalyser.emote.Channel;
 import de.prkz.twitch.emoteanalyser.emote.EmoteType;
-import org.json.JSONArray;
-import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URL;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class TwitchEmoteProvider extends EmoteProvider {
 
     private static final Logger LOG = LoggerFactory.getLogger(TwitchEmoteProvider.class);
 
-    private static final String TWITCH_KRAKEN_API_BASEURL = "https://api.twitch.tv/kraken";
-
-    private final String twitchClientId;
+    private final TwitchHelix twitch;
 
 
-    public TwitchEmoteProvider(String twitchClientId, int fetchTimeoutMillis) {
+    public TwitchEmoteProvider(TwitchHelix twitch, int fetchTimeoutMillis) {
         super(fetchTimeoutMillis);
-        this.twitchClientId = twitchClientId;
+        this.twitch = twitch;
     }
 
     @Override
     public EmoteFetchResult fetchGlobalEmotes() throws Exception {
-        Set<String> emotes = fetchEmoteSets(Arrays.asList(
-                0, /* Global emotes */
-                793, /* Twitch Turbo */
-                19194, /* Twitch Prime */
-                695138 /* OWL All Access Pass */));
+        EmoteList emoteList;
+        try {
+            emoteList = twitch.getGlobalEmotes(null).execute();
+        } catch (HystrixRuntimeException e) {
+            // If this call fails, it is unlikely that the following additional calls will succeed too
+            throw new Exception("Could not fetch global twitch emotes from Helix API", e);
+        }
+
+        Set<String> emotes = emoteList.getEmotes().stream()
+                .map(Emote::getName)
+                .collect(Collectors.toSet());
+
+        // Fetch some additional "global" emote sets
+        try {
+            emotes.addAll(fetchEmoteSets(Arrays.asList(
+                    0, /* Global emotes */
+                    793, /* Twitch Turbo */
+                    19194, /* Twitch Prime */
+                    695138 /* OWL All Access Pass */)));
+        } catch (Exception e) {
+            LOG.warn("Could not fetch additional global emote sets", e);
+        }
 
         return new EmoteFetchResult(EmoteType.TWITCH_GLOBAL, emotes);
     }
 
     @Override
     public EmoteFetchResult fetchChannelEmotes(Channel channel) throws Exception {
-        Set<String> emotes = fetchEmoteSets(Collections.singletonList(channel.emoteSet));
+        if (channel == null)
+            throw new IllegalArgumentException("channel is null");
+
+        if (channel.broadcasterId == null)
+            return null;
+
+        EmoteList emoteList;
+        try {
+            emoteList = twitch.getChannelEmotes(null, channel.broadcasterId).execute();
+        } catch (HystrixRuntimeException e) {
+            throw new Exception("Could not fetch channel emotes for channel " + channel.name + ", " +
+                    "broadcasterId = " + channel.broadcasterId, e);
+        }
+
+        Set<String> emotes = new HashSet<>();
+        for (Emote emote : emoteList.getEmotes())
+            emotes.add(emote.getName());
+
         return new EmoteFetchResult(EmoteType.TWITCH_SUBSCRIBER, emotes, channel);
     }
 
@@ -45,34 +79,19 @@ public class TwitchEmoteProvider extends EmoteProvider {
         if (emoteSets.isEmpty())
             return new HashSet<>();
 
-        StringBuilder emoteSetsParam = new StringBuilder();
-        for (int i = 0; i < emoteSets.size(); ++i) {
-            if (i > 0)
-                emoteSetsParam.append(',');
-            emoteSetsParam.append(emoteSets.get(i));
+        EmoteList emoteList;
+        try {
+            emoteList = twitch
+                    .getEmoteSets(null, emoteSets.stream().map(Object::toString).collect(Collectors.toList()))
+                    .execute();
+        } catch (HystrixRuntimeException e) {
+            throw new Exception("Could not fetch emote sets " +
+                    emoteSets.stream().map(Object::toString).collect(Collectors.joining(",")), e);
         }
-
-        URL url = new URL(TWITCH_KRAKEN_API_BASEURL + "/chat/emoticon_images?emotesets=" + emoteSetsParam.toString());
-        String response = getJSONHttp(url, new HashMap<String, String>() {{
-            put("Client-ID", twitchClientId);
-            put("Accept", "application/vnd.twitchtv.v5+json");
-        }});
-
-        JSONObject responseObj = new JSONObject(response);
-        JSONObject emoticonSets = responseObj.getJSONObject("emoticon_sets");
-        if (emoticonSets == null)
-            throw new Exception("Response does not include emoticon_sets");
 
         Set<String> emotes = new HashSet<>();
-        for (String emoteSetId : emoticonSets.keySet()) {
-            JSONArray emoteSet = emoticonSets.getJSONArray(emoteSetId);
-            for (int i = 0; i < emoteSet.length(); ++i) {
-                JSONObject emote = emoteSet.getJSONObject(i);
-                emotes.add(emote.getString("code"));
-            }
-
-            LOG.info("Fetched " + emoteSet.length() + " emotes in emote set #" + emoteSetId);
-        }
+        for (Emote emote : emoteList.getEmotes())
+            emotes.add(emote.getName());
 
         return emotes;
     }

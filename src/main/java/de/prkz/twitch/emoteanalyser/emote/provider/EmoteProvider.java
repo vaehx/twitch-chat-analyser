@@ -21,7 +21,8 @@ public abstract class EmoteProvider {
     public abstract EmoteFetchResult fetchChannelEmotes(Channel channel) throws Exception;
 
 
-    protected String getJSONHttp(URL url, Map<String, String> additionalHeaders) throws Exception {
+    protected String getJSONHttp(URL url, Map<String, String> additionalHeaders)
+            throws NotFoundHttpException, Exception {
         HttpURLConnection con = (HttpURLConnection) url.openConnection();
         con.setConnectTimeout(fetchTimeoutMillis);
         con.setReadTimeout(fetchTimeoutMillis);
@@ -33,7 +34,7 @@ public abstract class EmoteProvider {
 
         int status = con.getResponseCode();
         if (status == 404) {
-            throw new Exception("Not found (404)");
+            throw new NotFoundHttpException("404 - Not Found");
         } else if (status != 200) {
             throw new Exception("Got HTTP error for request to URL '" + url.toString() + "': " +
                     "Code " + con.getResponseCode() + ", Message: " + con.getResponseMessage());

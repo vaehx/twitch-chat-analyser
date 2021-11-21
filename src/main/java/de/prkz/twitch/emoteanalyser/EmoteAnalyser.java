@@ -1,7 +1,7 @@
 package de.prkz.twitch.emoteanalyser;
 
 import de.prkz.twitch.emoteanalyser.channel.ChannelStatsAggregation;
-import de.prkz.twitch.emoteanalyser.config.Config;
+import de.prkz.twitch.emoteanalyser.config.FlinkJobConfig;
 import de.prkz.twitch.emoteanalyser.emote.*;
 import de.prkz.twitch.emoteanalyser.phrase.*;
 import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
@@ -39,7 +39,7 @@ public class EmoteAnalyser {
             System.exit(1);
         }
 
-        Config config = Config.parse(Paths.get(args[0]));
+        FlinkJobConfig config = new FlinkJobConfig(Paths.get(args[0]));
 
 
         // Prepare database
@@ -93,7 +93,10 @@ public class EmoteAnalyser {
 
 
         // Extract emotes from messages
-        EmoteExtractor emoteExtractor = new EmoteExtractor(config.getDbJdbcUrl(), config.getTwitchClientId());
+        EmoteExtractor emoteExtractor = new EmoteExtractor(
+                config.getDbJdbcUrl(),
+                config.getTwitchClientId(),
+                config.getTwitchClientSecret());
         emoteExtractor.prepareTables(stmt);
         DataStream<Emote> emotes = messages
                 .flatMap(emoteExtractor)
