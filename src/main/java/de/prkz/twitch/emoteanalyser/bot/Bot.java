@@ -8,7 +8,7 @@ import de.prkz.twitch.emoteanalyser.Dated;
 import de.prkz.twitch.emoteanalyser.Message;
 import de.prkz.twitch.emoteanalyser.MessageSerializer;
 import de.prkz.twitch.emoteanalyser.ThrowingConsumer;
-import de.prkz.twitch.emoteanalyser.bot.config.Config;
+import de.prkz.twitch.emoteanalyser.config.Config;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;

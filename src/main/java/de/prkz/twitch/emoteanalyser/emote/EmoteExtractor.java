@@ -17,7 +17,6 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private static final String EMOTES_TABLE_NAME = "emotes";
     private static final String CHANNELS_TABLE_NAME = "channels";
-    private static final String TWITCH_API_CLIENT_ID = "ccxk8gzqpe0qd8t5lmwf45t1kplfi1";
     private static final long EMOTE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
     private static final int EMOTE_FETCH_TIMEOUT_MS = 20 * 1000;
     private transient long lastEmoteFetch;
@@ -27,10 +26,10 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private final List<EmoteProvider> emoteProviders;
 
 
-    public EmoteExtractor(String jdbcUrl) {
+    public EmoteExtractor(String jdbcUrl, String twitchClientId) {
         this.jdbcUrl = jdbcUrl;
         this.emoteProviders = Arrays.asList(
-                new TwitchEmoteProvider(TWITCH_API_CLIENT_ID, EMOTE_FETCH_TIMEOUT_MS),
+                new TwitchEmoteProvider(twitchClientId, EMOTE_FETCH_TIMEOUT_MS),
                 new BTTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
                 new FFZEmoteProvider(EMOTE_FETCH_TIMEOUT_MS),
                 new SevenTVEmoteProvider(EMOTE_FETCH_TIMEOUT_MS)

@@ -9,3 +9,4 @@ nbactions.xml
 dependency-reduced-pom.xml
 db-storage/*
 bot.properties
+job.properties

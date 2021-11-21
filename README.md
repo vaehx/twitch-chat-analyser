@@ -2,17 +2,21 @@
 
 ## Setup
 
+Create a Twitch App if you haven't already (https://dev.twitch.tv/console/apps/create) and keep the client-id and client secret ready.
+
 1. Build app: `./gradlew build`
 
 2. Install dashboard dependencies: In `dashboard` directory, run `composer install`
 
-3. Configure bot, by copying `bot.example.properties` to `bot.properties` and adjusting as needed.
+3. Configure bot by copying `bot.example.properties` to `bot.properties` and adjusting as needed.
 
-4. Start complete docker setup: `docker-compose up -d`
+4. Configure Flink job by copying `job.example.properties` to `job.properties` and adjusting as needed.
 
-5. Once the Flink dashboard is up (http://localhost:8081), submit Flink Streaming Job with `submit.sh` 
+5. Start complete docker setup: `docker-compose up -d`
 
-6. The app will periodically fetch subscriber emotes for all channels in the `channels` table; as well as all globally known emotes (Twitch + BTTV + FFZ):
+6. Once the Flink dashboard is up (http://localhost:8081), submit Flink Streaming Job with `submit.py`
+
+7. The app will periodically fetch subscriber emotes for all channels in the `channels` table; as well as all globally known emotes (Twitch + BTTV + FFZ + 7TV):
 
 	* Unfortunately, you currently have to figure out the emote set ID you want to track manually. You can do this buy (re-)loading the channel page while having the
 	  Network tab open with the browser's developer console. The Emote Set will be somewhere hidden in a GQL request. You can start by searching (Ctrl+F) for `emoteSetID` or a specific emote of that channel. You may also try to search for `availableEmoteSets` and dig through it's contents.

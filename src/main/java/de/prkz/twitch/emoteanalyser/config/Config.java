@@ -1,4 +1,4 @@
-package de.prkz.twitch.emoteanalyser.bot.config;
+package de.prkz.twitch.emoteanalyser.config;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -17,7 +17,7 @@ public class Config {
 
     public static final String KEY_TWITCH_CLIENT_SECRET = "twitch.client-secret";
     public String getTwitchClientSecret() {
-        return props.getProperty("twitch.client-secret");
+        return props.getProperty(KEY_TWITCH_CLIENT_SECRET);
     }
 
     public static final String KEY_DB_JDBC_URL = "db.jdbc-url";
@@ -50,6 +50,16 @@ public class Config {
         String channelStr = props.getProperty(KEY_CHANNELS);
         String[] channels = channelStr.split("\\s*,\\s*");
         return Arrays.asList(channels);
+    }
+
+    public static final String KEY_AGGREGATION_INTERVAL_MILLIS = "aggregation-interval.millis";
+    public int getAggregationIntervalMillis() {
+        return Integer.parseInt(props.getProperty(KEY_AGGREGATION_INTERVAL_MILLIS));
+    }
+
+    public static final String KEY_TRIGGER_INTERVAL_MILLIS = "trigger-interval.millis";
+    public int getTriggerIntervalMillis() {
+        return Integer.parseInt(props.getProperty(KEY_TRIGGER_INTERVAL_MILLIS));
     }
 
 
