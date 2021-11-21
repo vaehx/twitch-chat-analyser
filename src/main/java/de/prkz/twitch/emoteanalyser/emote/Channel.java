@@ -9,4 +9,9 @@ public class Channel {
         this.name = name;
         this.emoteSet = emoteSet;
     }
+
+    @Override
+    public String toString() {
+        return name;
+    }
 }
