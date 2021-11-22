@@ -245,7 +245,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private void insertNewEmotes(Connection conn, Collection<String> emotes, EmoteType type, Channel channel)
             throws Exception {
-        String sql = "INSERT INTO " + channelsTableName + "(emote, type, channel) " +
+        String sql = "INSERT INTO " + emotesTableName + "(emote, type, channel) " +
                 "VALUES(?, ?, ?) " +
                 "ON CONFLICT(emote) DO NOTHING";
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
