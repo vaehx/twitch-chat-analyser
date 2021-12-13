@@ -5,7 +5,7 @@ services:
   #----------------------------------------------------------------------------
   bot:
     image: openjdk:8-alpine
-    command: java -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot /bot.properties
+    command: java -Dlog4j2.formatMsgNoLookups=true -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot /bot.properties
     container_name: tca_bot
     volumes:
       - ./bot.properties:/bot.properties:ro
