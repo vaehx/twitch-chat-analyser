@@ -37,7 +37,7 @@ public class UserEmoteStatsAggregation
     public void prepareTable(Statement stmt) throws SQLException {
         stmt.execute("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + "(" +
                 "channel VARCHAR(32) NOT NULL," +
-                "emote VARCHAR(64) NOT NULL," +
+                "emote VARCHAR(" + Emote.MAX_EMOTE_LENGTH + ") NOT NULL," +
                 "username VARCHAR(32) NOT NULL," +
                 "timestamp BIGINT NOT NULL," +
                 "occurrences INT NOT NULL DEFAULT 0," +
