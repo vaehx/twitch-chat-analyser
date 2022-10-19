@@ -4,7 +4,7 @@ plugins {
 }
 
 group = 'de.prkz.twitch'
-version = '1.2-SNAPSHOT'
+version = 'SNAPSHOT'
 description = 'Twitch Chat Analyser'
 
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'

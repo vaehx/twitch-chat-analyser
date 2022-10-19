@@ -1,25 +1,23 @@
-version: "2.2"
 services:
   #----------------------------------------------------------------------------
   # Chat Bot
   #----------------------------------------------------------------------------
   bot:
-    image: openjdk:8-alpine
-    command: java -Dlog4j2.formatMsgNoLookups=true -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot /bot.properties
-    container_name: tca_bot
+    image: eclipse-temurin:11-jdk-alpine
+    command: java -cp /analyzer.jar de.prkz.twitch.emoteanalyser.bot.Bot /bot.properties
     volumes:
       - ./bot.properties:/bot.properties:ro
-      - ./build/libs/twitch-chat-analyzer-1.1-SNAPSHOT-all.jar:/analyzer.jar:ro
-    links:
-      - kafka
+      - ./build/libs/twitch-chat-analyzer-SNAPSHOT-all.jar:/analyzer.jar:ro
     restart: unless-stopped
+    depends_on:
+      - kafka
+      - postgres
 
   #----------------------------------------------------------------------------
   # Zookeeper
   #----------------------------------------------------------------------------
   zookeeper:
     image: zookeeper
-    container_name: tca_zookeeper
     expose:
       - "2181"
     volumes:
@@ -34,7 +32,6 @@ services:
     build: ./kafka
     entrypoint: wait-for.sh --wait-for zookeeper:2181 --delay 5s
     command: start-kafka.sh
-    container_name: tca_kafka
     volumes:
       - ./kafka-storage:/kafka
     expose:
@@ -54,58 +51,60 @@ services:
       KAFKA_LOG_RETENTION_HOURS: -1
       KAFKA_LOG_DIRS: /kafka/logs
       KAFKA_HEAP_OPTS: "-Xmx256M -Xms256M"
-    links:
-      - zookeeper
     restart: unless-stopped
+    depends_on:
+      - zookeeper
   
   #----------------------------------------------------------------------------
   # Flink
   #----------------------------------------------------------------------------
   flink-jobmanager:
-    build: ./flink
+    image: flink:1.15.2
     command: jobmanager
-    container_name: tca_flink-jobmanager
     expose:
       - "6123"
     ports:
       - "8081:8081"
     environment:
-      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
+      FLINK_PROPERTIES: |
+        web.port: 8081
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.rpc.port: 6123
+        jobmanager.memory.process.size: 1600m
     volumes:
-      # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
       - ./flink-data:/data
-    links:
-      - postgres
     restart: unless-stopped
   
   flink-taskmanager:
-    build: ./flink
+    image: flink:1.15.2
     command: taskmanager
-    container_name: tca_flink-taskmanager
     expose:
       - "6121"
       - "6122"
     environment:
-      JOB_MANAGER_RPC_ADDRESS: flink-jobmanager
-      # Adjust as needed
-      TASK_MANAGER_NUMBER_OF_TASK_SLOTS: 1
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        jobmanager.rpc.port: 6123
+        
+        # Adjust as needed
+        taskmanager.numberOfTaskSlots: 4
+        
+        taskmanager.process.size: 1728m
+        taskmanager.memory.network.min: 32mb
+        taskmanager.memory.network.fraction: 0.03
     volumes:
-      # flink-conf.yaml is altered in docker entrypoint script, so it is added in Dockerfile
-      # Same directory, so JM can delete TM checkpoint data
+      - ./flink/log4j-cli.properties:/opt/flink/conf/log4j-cli.properties:ro
+      # Same directory as in JM, so JM can delete TM checkpoint data
       - ./flink-data:/data
-    links:
-      - flink-jobmanager
-      - postgres
-      - zookeeper
-      - kafka
     restart: unless-stopped
+    depends_on:
+      - flink-jobmanager
 
   #----------------------------------------------------------------------------
   # Postgres
   #----------------------------------------------------------------------------
   postgres:
-    image: postgres:13.0
-    container_name: tca_postgres
+    image: postgres:15
     command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
     environment:
       POSTGRES_PASSWORD: password
@@ -123,15 +122,14 @@ services:
   dashboard:
     image: dashboard
     build: ./dashboard
-    container_name: tca_dashboard
     ports:
       - "8082:80"
     volumes:
       - ./dashboard:/var/www/html
       - ./dashboard/php.ini:/usr/local/etc/php/php-dashboard.ini:ro
-    links:
-      - postgres
     restart: unless-stopped
+    depends_on:
+      - postgres
 
 volumes:
   postgres-data:
