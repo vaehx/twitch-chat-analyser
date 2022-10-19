@@ -88,9 +88,6 @@ public class Bot {
         kafkaProps.put("linger.ms", 100);
         producer = new KafkaProducer<>(kafkaProps);
 
-        LOG.info("Updating streams info now...");
-        updateAllStreamsInfo();
-
         LOG.info("Starting twitch client(s)...");
         twitch = TwitchClientBuilder.builder()
                 .withClientId(config.getTwitchClientId())
@@ -101,6 +98,9 @@ public class Bot {
 
         helix = twitch.getHelix();
         chat = twitch.getChat();
+
+        LOG.info("Updating streams info now...");
+        updateAllStreamsInfo();
 
         for (String channel : config.getChannels()) {
             LOG.info("Will join channel '{}'", channel);
