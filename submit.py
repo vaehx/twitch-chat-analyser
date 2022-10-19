@@ -26,8 +26,8 @@ print('Copying config into container...')
 run_shell_command(['docker', 'compose', 'cp', PROPERTIES_FILE, JOBMANAGER_SERVICE + ':/analyser.properties'])
 
 print('Fixing permissions of data directories in container...')
-run_shell_command(['docker', 'compose' 'exec', '-T', '-u', 'root', JOBMANAGER_SERVICE, 'mkdir', '-p', CHECKPOINTS_DIR])
-run_shell_command(['docker', 'compose' 'exec', '-T', '-u', 'root', JOBMANAGER_SERVICE, 'chown', 'flink:flink', CHECKPOINTS_DIR])
+run_shell_command(['docker', 'compose', 'exec', '-T', '-u', 'root', JOBMANAGER_SERVICE, 'mkdir', '-p', CHECKPOINTS_DIR])
+run_shell_command(['docker', 'compose', 'exec', '-T', '-u', 'root', JOBMANAGER_SERVICE, 'chown', 'flink:flink', CHECKPOINTS_DIR])
 
 print('Submitting job...')
 run_shell_command(['docker', 'compose', 'exec', '-T', JOBMANAGER_SERVICE, 'flink', 'run',
