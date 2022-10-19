@@ -32,7 +32,7 @@ public class MessagesMatchingPhraseExporter extends XAPostgresSink<MessageMatchi
     @Override
     protected void setFields(PreparedStatement stmt, MessageMatchingPhrase messageMatchingPhrase) throws SQLException {
         int i = 1;
-        stmt.setTimestamp(i++, Timestamp.from(Instant.ofEpochMilli(messageMatchingPhrase.timestamp)),
+        stmt.setTimestamp(i++, Timestamp.from(messageMatchingPhrase.instant),
                 Calendar.getInstance(TimeZone.getTimeZone("UTC")));
         stmt.setString(i++, messageMatchingPhrase.channel);
         stmt.setString(i++, messageMatchingPhrase.username);

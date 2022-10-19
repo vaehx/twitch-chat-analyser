@@ -1,5 +1,7 @@
 package de.prkz.twitch.emoteanalyser.emote;
 
+import java.time.Instant;
+
 public class Emote {
 
     /**
@@ -8,7 +10,7 @@ public class Emote {
      */
     public static final int MAX_EMOTE_LENGTH = 150;
 
-    public long timestamp;
+    public Instant instant;
     public String channel;
     public String username;
     public String emote;

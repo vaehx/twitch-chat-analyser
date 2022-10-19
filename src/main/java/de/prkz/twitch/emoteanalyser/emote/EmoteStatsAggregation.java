@@ -52,7 +52,7 @@ public class EmoteStatsAggregation
     @Override
     protected void setFieldsForOutput(PreparedStatement stmt, EmoteStats stats) throws SQLException {
         // diff
-        stmt.setLong(1, stats.timestamp);
+        stmt.setLong(1, stats.instant.toEpochMilli());
         stmt.setString(2, stats.channel);
         stmt.setString(3, stats.emote);
         stmt.setLong(4, stats.occurrences);
@@ -76,7 +76,7 @@ public class EmoteStatsAggregation
 
     @Override
     protected long getTimestampForElement(Emote emote) {
-        return emote.timestamp;
+        return emote.instant.toEpochMilli();
     }
 
     @Override

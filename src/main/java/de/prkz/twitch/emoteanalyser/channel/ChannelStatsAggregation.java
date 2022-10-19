@@ -52,7 +52,7 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
     @Override
     protected void setFieldsForOutput(PreparedStatement stmt, ChannelStats stats) throws SQLException {
         // diff
-        stmt.setLong(1, stats.timestamp);
+        stmt.setLong(1, stats.instant.toEpochMilli());
         stmt.setString(2, stats.channel);
         stmt.setLong(3, stats.messageCount);
 
@@ -74,7 +74,7 @@ public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, S
 
     @Override
     protected long getTimestampForElement(Message message) {
-        return message.timestamp;
+        return message.instant.toEpochMilli();
     }
 
     @Override

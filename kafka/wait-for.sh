@@ -5,8 +5,6 @@
 # 	and additionally adding a delay until executing the command.
 # Requirements:
 #	bash
-# Author:
-#	prosenkranz
 # Usage:
 #	Example: Wait for zookeeper to be available before starting Kafka broker
 #		wait-for.sh --wait-for zookeeper:2181 --delay 10 -- start-kafka.sh

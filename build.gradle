@@ -4,16 +4,20 @@ plugins {
 }
 
 group = 'de.prkz.twitch'
-version = '1.1-SNAPSHOT'
+version = '1.2-SNAPSHOT'
 description = 'Twitch Chat Analyser'
 
-sourceCompatibility = '1.8'
 [compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(11)
+	}
+}
 
 project.ext.mainClassName = 'de.prkz.twitch.emoteanalyser.EmoteAnalyser'
 
-def flinkVersion = '1.14.3'
-def flinkScalaVersion = '2.12'
+def flinkVersion = '1.15.2'
 
 repositories {
 	mavenCentral()
@@ -21,27 +25,25 @@ repositories {
 }
 
 dependencies {
-	implementation "org.apache.flink:flink-connector-kafka_${flinkScalaVersion}:${flinkVersion}"
-	implementation "org.apache.flink:flink-metrics-dropwizard:${flinkVersion}"
-	implementation "com.github.pircbotx:pircbotx:2.2"
+	implementation group: 'org.apache.flink', name: 'flink-connector-kafka', version: flinkVersion
+	implementation group: 'org.apache.flink', name: 'flink-metrics-dropwizard', version: flinkVersion
 
-	implementation 'com.github.twitch4j:twitch4j:1.8.0'
+	implementation group: 'com.github.twitch4j', name: 'twitch4j', version: '1.12.0'
 
-	implementation 'org.postgresql:postgresql:42.3.3'
-	implementation 'org.json:json:20211205'
-	implementation 'org.apache.logging.log4j:log4j-slf4j-impl:2.17.1'
+	implementation group: 'org.postgresql', name: 'postgresql', version: '42.5.0'
+	implementation group: 'org.json', name: 'json', version: '20220924'
+	implementation group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.19.0'
 
-	compileOnly "org.apache.flink:flink-java:${flinkVersion}"
-	compileOnly "org.apache.flink:flink-core:${flinkVersion}"
-	compileOnly "org.apache.flink:flink-streaming-java_${flinkScalaVersion}:${flinkVersion}"
-	compileOnly "org.apache.flink:flink-clients_${flinkScalaVersion}:${flinkVersion}"
+	compileOnly group: 'org.apache.flink', name: 'flink-java', version: flinkVersion
+	compileOnly group: 'org.apache.flink', name: 'flink-streaming-java', version: flinkVersion
+	compileOnly group: 'org.apache.flink', name: 'flink-clients', version: flinkVersion
 }
 
 shadowJar {
 	mergeServiceFiles()
 
 	manifest {
-		attributes 'Main-Class': "$mainClassName"
+		attributes 'Main-Class': mainClassName
 	}
 }
 

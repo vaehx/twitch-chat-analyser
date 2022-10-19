@@ -55,7 +55,7 @@ public class PhraseStatsAggregation extends AbstractStatsAggregation<PhraseStats
         // diff
         stmt.setString(1, stats.channel);
         stmt.setString(2, stats.phraseName);
-        stmt.setLong(3, stats.timestamp);
+        stmt.setLong(3, stats.instant.toEpochMilli());
         stmt.setLong(4, stats.matches);
 
         // total
@@ -77,7 +77,7 @@ public class PhraseStatsAggregation extends AbstractStatsAggregation<PhraseStats
 
     @Override
     protected long getTimestampForElement(PhraseStats element) {
-        return element.timestamp;
+        return element.instant.toEpochMilli();
     }
 
     @Override

@@ -73,7 +73,7 @@ public class PhraseExtractor extends ProcessFunction<Message, PhraseStats> {
 
                 if (matches > 0) {
                     PhraseStats p = new PhraseStats();
-                    p.timestamp = message.timestamp;
+                    p.instant = message.instant;
                     p.channel = message.channel;
                     p.phraseName = phrase.name;
                     p.matches = matches;

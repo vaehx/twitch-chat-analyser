@@ -93,7 +93,7 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
         for (String word : words) {
             if (emotes.contains(word)) {
                 Emote e = new Emote();
-                e.timestamp = message.timestamp;
+                e.instant = message.instant;
                 e.channel = message.channel;
                 e.emote = word;
                 e.username = message.username;

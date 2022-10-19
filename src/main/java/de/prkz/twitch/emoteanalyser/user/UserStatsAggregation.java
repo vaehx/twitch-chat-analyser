@@ -52,7 +52,7 @@ public class UserStatsAggregation
     @Override
     protected void setFieldsForOutput(PreparedStatement stmt, UserStats stats) throws SQLException {
         // diff
-        stmt.setLong(1, stats.timestamp);
+        stmt.setLong(1, stats.instant.toEpochMilli());
         stmt.setString(2, stats.channel);
         stmt.setString(3, stats.username);
         stmt.setLong(4, stats.messageCount);
@@ -76,7 +76,7 @@ public class UserStatsAggregation
 
     @Override
     protected long getTimestampForElement(Message message) {
-        return message.timestamp;
+        return message.instant.toEpochMilli();
     }
 
     @Override

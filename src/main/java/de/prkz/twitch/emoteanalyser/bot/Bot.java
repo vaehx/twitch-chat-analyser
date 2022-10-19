@@ -1,7 +1,12 @@
 package de.prkz.twitch.emoteanalyser.bot;
 
+import com.github.twitch4j.TwitchClient;
+import com.github.twitch4j.TwitchClientBuilder;
+import com.github.twitch4j.chat.TwitchChat;
+import com.github.twitch4j.chat.events.channel.ChannelMessageEvent;
+import com.github.twitch4j.common.events.domain.EventChannel;
+import com.github.twitch4j.common.events.domain.EventUser;
 import com.github.twitch4j.helix.TwitchHelix;
-import com.github.twitch4j.helix.TwitchHelixBuilder;
 import com.github.twitch4j.helix.domain.ChannelSearchList;
 import com.github.twitch4j.helix.domain.ChannelSearchResult;
 import de.prkz.twitch.emoteanalyser.Dated;
@@ -11,28 +16,29 @@ import de.prkz.twitch.emoteanalyser.ThrowingConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
-import org.pircbotx.PircBotX;
-import org.pircbotx.delay.StaticDelay;
-import org.pircbotx.hooks.ListenerAdapter;
-import org.pircbotx.hooks.events.ActionEvent;
-import org.pircbotx.hooks.events.ConnectAttemptFailedEvent;
-import org.pircbotx.hooks.events.MessageEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.impl.StaticLoggerBinder;
 
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
 
-public class Bot extends ListenerAdapter {
+/**
+ * The chat bot collects twitch messages from the configured channels and pushes them to Kafka. Additionally, it
+ * tracks uptime of livestreams.
+ */
+public class Bot {
 
     private static final Logger LOG = LoggerFactory.getLogger(Bot.class);
 
     private final BotConfig config;
     private KafkaProducer<Long, Message> producer;
-    private TwitchHelix twitch;
+    private TwitchClient twitch;
+    private TwitchChat chat;
+    private TwitchHelix helix;
     private final Map<String, Dated<ChannelSearchResult>> livestreams = new HashMap<>();
     private Connection dbConn;
 
@@ -74,11 +80,23 @@ public class Bot extends ListenerAdapter {
                     "PRIMARY KEY(channel, started_at))");
         }
 
-        LOG.info("Connecting to Twitch API...");
-        twitch = TwitchHelixBuilder.builder()
+        LOG.info("Starting twitch client(s)...");
+        twitch = TwitchClientBuilder.builder()
                 .withClientId(config.getTwitchClientId())
                 .withClientSecret(config.getTwitchClientSecret())
+                .withEnableHelix(true)
+                .withEnableChat(true)
                 .build();
+
+        helix = twitch.getHelix();
+        chat = twitch.getChat();
+
+        for (String channel : config.getChannels()) {
+            LOG.info("Will join channel '{}'", channel);
+            twitch.getChat().joinChannel(channel);
+        }
+
+        chat.getEventManager().onEvent(ChannelMessageEvent.class, this::onMessage);
 
         LOG.info("Updating streams info now...");
         updateAllStreamsInfo();
@@ -91,73 +109,34 @@ public class Bot extends ListenerAdapter {
         kafkaProps.put("linger.ms", 100);
 
         producer = new KafkaProducer<>(kafkaProps);
-
-        // Pircbot needs # in fron of the channel name
-        List<String> pircbotChannels = config.getChannels().stream()
-                .map(ch -> {
-                    LOG.info("Will join channel #{}", ch);
-                    return "#" + ch;
-                })
-                .collect(Collectors.toList());
-
-        org.pircbotx.Configuration config = new org.pircbotx.Configuration.Builder()
-                .setName("justinfan92834") // TODO: Make random?
-                .addServer("irc.chat.twitch.tv", 6667)
-                .addListener(this)
-                .addAutoJoinChannels(pircbotChannels)
-                .setAutoReconnect(true)
-                .setAutoReconnectAttempts(20)
-                .setAutoReconnectDelay(new StaticDelay(10000))
-                .buildConfiguration();
-
-        LOG.info("Now starting bot...");
-        PircBotX pircBotX = new PircBotX(config);
-        pircBotX.startBot();
     }
 
-    @Override
-    public void onAction(ActionEvent event) throws Exception {
-        // Includes BOT messages, we convert them to normal messages
+    private void onMessage(ChannelMessageEvent event) {
+        EventUser user = event.getUser();
+        if (user == null)
+            return;
 
-        if (event.getUser() == null || event.getChannel() == null)
+        EventChannel channel = event.getChannel();
+        if (channel == null)
+            return;
+
+        String messageText = event.getMessage();
+        if (messageText == null)
+            return;
+
+        messageText = messageText.trim();
+        if (messageText.isEmpty())
             return;
 
         Message m = new Message();
-        m.channel = cleanupChannelName(event.getChannel().getName());
-        m.timestamp = event.getTimestamp();
-        m.username = event.getUser().getNick();
-        m.message = event.getAction();
+        m.channel = channel.getName();
+        m.instant = event.getFiredAtInstant();
+        m.username = user.getName();
+        m.message = messageText;
 
-        producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
-
-        updateAllStreamsInfo();
-    }
-
-    @Override
-    public void onMessage(MessageEvent event) throws Exception {
-        if (event.getUser() == null)
-            return;
-
-        Message m = new Message();
-        m.channel = cleanupChannelName(event.getChannel().getName());
-        m.timestamp = event.getTimestamp();
-        m.username = event.getUser().getNick();
-        m.message = event.getMessage();
-
-        producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.timestamp, m));
+        producer.send(new ProducerRecord<>(config.getKafkaTopic(), m.instant.toEpochMilli(), m));
 
         updateAllStreamsInfo();
-    }
-
-    @Override
-    public void onConnectAttemptFailed(ConnectAttemptFailedEvent event) {
-        if (event.getRemainingAttempts() <= 0) {
-            int attempts = event.getBot().getConfiguration().getAutoReconnectAttempts();
-            LOG.error("Bot could not reconnect after " + attempts + " attempts. " +
-                    "Forcing crash to restart service...");
-
-            System.exit(1);
-        }
     }
 
 
@@ -172,6 +151,8 @@ public class Bot extends ListenerAdapter {
         if (livestreams.size() == config.getChannels().size() && noStreamNeedsUpdate) {
             return;
         }
+
+        LOG.info("Updating streams info...");
 
         final String sql = "INSERT INTO " + config.getStreamsTableName() +
                 "(channel, channel_id, started_at, ended_at) " +
@@ -201,15 +182,19 @@ public class Bot extends ListenerAdapter {
     private void updateStreamInfo(String channel, ThrowingConsumer<ChannelSearchResult> upsertCallback) {
         Dated<ChannelSearchResult> stream = livestreams.get(channel);
         if (stream != null) {
-            if (System.currentTimeMillis() - stream.updatedAt() < config.getStreamsUpdateCooldownMillis())
+            long now = System.currentTimeMillis();
+            if (now - stream.updatedAt() < config.getStreamsUpdateCooldownMillis()) {
+                LOG.info("Stream info on channel '{}' still up to date (updated {} ms ago)",
+                        channel, now - stream.updatedAt());
                 return; // info still up to date
+            }
         } else {
             stream = new Dated<>();
             livestreams.put(channel, stream);
         }
 
         // Fetch current info: We're only interested in live channels
-        ChannelSearchList searchList = twitch.searchChannels(null, channel, 1, null, true).execute();
+        ChannelSearchList searchList = helix.searchChannels(null, channel, 1, null, true).execute();
         boolean isLive = false;
         if (!searchList.getResults().isEmpty()) {
             ChannelSearchResult r = searchList.getResults().get(0);
@@ -223,6 +208,13 @@ public class Bot extends ListenerAdapter {
 
         if (stream.get() != null) { // stream was live before or just went live
             ChannelSearchResult r = stream.get();
+
+
+            LOG.info("  Channel search result for '{}': isLive={}, startedAt={}",
+                    channel, r.getIsLive(), r.getStartedAt());
+
+
+
             if (r.getIsLive() && r.getStartedAt() != null) {
                 // Update end-time of existing stream info regardless of whether it just went offline or not
                 try {
@@ -238,14 +230,5 @@ public class Bot extends ListenerAdapter {
             stream.set(null);
             LOG.info("Channel '{}' is not live.", channel);
         }
-    }
-
-
-
-    /**
-     * Removes potential '#' from start of channel name and returns the cleaned-up version
-     */
-    private static String cleanupChannelName(String channel) {
-        return channel.startsWith("#") ? channel.substring(1) : channel;
     }
 }

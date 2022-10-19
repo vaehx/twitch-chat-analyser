@@ -5,9 +5,10 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.Serializable;
+import java.time.Instant;
 
 public class Message implements Serializable {
-    public long timestamp;
+    public Instant instant;
     public String channel;
     public String username;
     public String message;
@@ -16,7 +17,7 @@ public class Message implements Serializable {
     }
 
     public Message(Message o) {
-        timestamp = o.timestamp;
+        instant = o.instant;
         channel = o.channel;
         username = o.username;
         message = o.message;
@@ -24,7 +25,7 @@ public class Message implements Serializable {
 
     public String toJson() {
         JSONObject obj = new JSONObject();
-        obj.put("timestamp", timestamp);
+        obj.put("timestamp", instant.toEpochMilli());
         obj.put("channel", channel);
         obj.put("username", username);
         obj.put("message", message);
@@ -34,7 +35,7 @@ public class Message implements Serializable {
     public static Message fromJson(String json) throws JSONException {
         JSONObject obj = new JSONObject(json);
         Message m = new Message();
-        m.timestamp = obj.getLong("timestamp");
+        m.instant = Instant.ofEpochMilli(obj.getLong("timestamp"));
         m.channel = obj.getString("channel");
         m.username = obj.getString("username");
         m.message = obj.getString("message");

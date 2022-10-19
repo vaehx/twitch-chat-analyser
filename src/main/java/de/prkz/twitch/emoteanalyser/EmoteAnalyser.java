@@ -8,21 +8,23 @@ import de.prkz.twitch.emoteanalyser.user.UserStatsAggregation;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.restartstrategy.RestartStrategies;
 import org.apache.flink.api.common.time.Time;
+import org.apache.flink.connector.kafka.source.KafkaSource;
 import org.apache.flink.runtime.state.hashmap.HashMapStateBackend;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.file.Paths;
 import java.sql.*;
-import java.util.Properties;
 
 public class EmoteAnalyser {
 
     private static final Logger LOG = LoggerFactory.getLogger(EmoteAnalyser.class);
+
+    public static final String KAFKA_CONSUMER_GROUP_ID = "twitch_chat_analyser";
 
     private static final long CHECKPOINT_INTERVAL_MS = 60000;
     private static final int PARALLELISM = 1;
@@ -41,7 +43,6 @@ public class EmoteAnalyser {
 
         FlinkJobConfig config = new FlinkJobConfig(Paths.get(args[0]));
 
-
         // Prepare database
         Connection conn = DriverManager.getConnection(config.getDbJdbcUrl());
         Statement stmt = conn.createStatement();
@@ -59,21 +60,20 @@ public class EmoteAnalyser {
                 5, org.apache.flink.api.common.time.Time.minutes(1), Time.seconds(5)));
 
         // Pull messages from Kafka
-        Properties kafkaProps = new Properties();
-        kafkaProps.setProperty("bootstrap.servers", config.getKafkaBootstrapServers());
-        kafkaProps.setProperty("group.id", "twitch_chat_analyser");
-        kafkaProps.setProperty("auto.offset.reset", "earliest");
+        KafkaSource<Message> source = KafkaSource.<Message>builder()
+                .setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, config.getKafkaBootstrapServers())
+                .setProperty(ConsumerConfig.GROUP_ID_CONFIG, KAFKA_CONSUMER_GROUP_ID)
+                .setProperty(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest")
+                .setTopics(config.getKafkaTopic())
+                .setValueOnlyDeserializer(new MessageDeserializationSchema())
+                .build();
 
-        FlinkKafkaConsumer<Message> consumer =
-                new FlinkKafkaConsumer<>(config.getKafkaTopic(), new MessageDeserializationSchema(), kafkaProps);
+        WatermarkStrategy<Message> watermarkStrategy = WatermarkStrategy.<Message>noWatermarks()
+                .withTimestampAssigner((message, recordTs) -> message.instant.toEpochMilli());
+
         DataStream<Message> messages = env
-                .addSource(consumer)
-                .uid("KafkaSource_0")
-                .name("KafkaSource")
-                .assignTimestampsAndWatermarks(WatermarkStrategy
-                        .<Message>noWatermarks()
-                        .withTimestampAssigner((message, recordTs) -> message.timestamp))
-                .uid("MessageTimestamps_0");
+                .fromSource(source, watermarkStrategy, "KafkaSource")
+                .uid("KafkaSource_1");
 
         // Per-Channel statistics
         ChannelStatsAggregation channelStatsAggregation = new ChannelStatsAggregation(
@@ -107,7 +107,7 @@ public class EmoteAnalyser {
                 .name("ExtractEmotes")
                 .assignTimestampsAndWatermarks(WatermarkStrategy
                         .<Emote>noWatermarks()
-                        .withTimestampAssigner((emote, recordTs) -> emote.timestamp))
+                        .withTimestampAssigner((emote, recordTs) -> emote.instant.toEpochMilli()))
                 .uid("EmoteTimestamps_0");
 
         // Per-Emote statistics

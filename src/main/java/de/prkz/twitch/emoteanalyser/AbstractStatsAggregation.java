@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -73,7 +74,7 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
         STATS stats = aggregates.get(key);
         if (stats == null) {
             stats = createNewStatsForKey(elementKey);
-            stats.timestamp = windowEnd;
+            stats.instant = Instant.ofEpochMilli(windowEnd);
         }
 
         stats = aggregate(stats, element);
