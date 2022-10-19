@@ -80,6 +80,17 @@ public class Bot {
                     "PRIMARY KEY(channel, started_at))");
         }
 
+        LOG.info("Connecting to Kafka cluster...");
+        Properties kafkaProps = new Properties();
+        kafkaProps.put("bootstrap.servers", config.getKafkaBootstrapServers());
+        kafkaProps.put("key.serializer", LongSerializer.class);
+        kafkaProps.put("value.serializer", MessageSerializer.class);
+        kafkaProps.put("linger.ms", 100);
+        producer = new KafkaProducer<>(kafkaProps);
+
+        LOG.info("Updating streams info now...");
+        updateAllStreamsInfo();
+
         LOG.info("Starting twitch client(s)...");
         twitch = TwitchClientBuilder.builder()
                 .withClientId(config.getTwitchClientId())
@@ -97,18 +108,6 @@ public class Bot {
         }
 
         chat.getEventManager().onEvent(ChannelMessageEvent.class, this::onMessage);
-
-        LOG.info("Updating streams info now...");
-        updateAllStreamsInfo();
-
-        LOG.info("Connecting to Kafka cluster...");
-        Properties kafkaProps = new Properties();
-        kafkaProps.put("bootstrap.servers", config.getKafkaBootstrapServers());
-        kafkaProps.put("key.serializer", LongSerializer.class);
-        kafkaProps.put("value.serializer", MessageSerializer.class);
-        kafkaProps.put("linger.ms", 100);
-
-        producer = new KafkaProducer<>(kafkaProps);
     }
 
     private void onMessage(ChannelMessageEvent event) {
