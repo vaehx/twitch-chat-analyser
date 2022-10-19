@@ -120,7 +120,6 @@ services:
   # Dashboard / Frontend
   #----------------------------------------------------------------------------
   dashboard:
-    image: dashboard
     build: ./dashboard
     ports:
       - "8082:80"
