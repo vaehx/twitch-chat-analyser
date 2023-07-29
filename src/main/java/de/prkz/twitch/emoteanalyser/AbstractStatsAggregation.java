@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,11 +41,11 @@ public abstract class AbstractStatsAggregation<INPUT, KEY, STATS extends Abstrac
     private long triggerIntervalMillis;
 
     public AbstractStatsAggregation(String jdbcUrl,
-                                    long aggregationIntervalMillis,
-                                    long triggerIntervalMillis) {
+                                    Duration aggregationInterval,
+                                    Duration triggerInterval) {
         this.jdbcUrl = jdbcUrl;
-        this.aggregationIntervalMillis = aggregationIntervalMillis;
-        this.triggerIntervalMillis = triggerIntervalMillis;
+        this.aggregationIntervalMillis = aggregationInterval.toMillis();
+        this.triggerIntervalMillis = triggerInterval.toMillis();
     }
 
     @Override

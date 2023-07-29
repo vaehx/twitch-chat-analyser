@@ -80,16 +80,16 @@ public class EmoteAnalyser {
         // Per-Channel statistics
         ChannelStatsAggregation channelStatsAggregation = new ChannelStatsAggregation(
                 config.getDbJdbcUrl(),
-                config.getAggregationIntervalMillis(),
-                config.getTriggerIntervalMillis());
+                config.getAggregationInterval(),
+                config.getTriggerInterval());
         channelStatsAggregation.prepareTable(stmt);
         channelStatsAggregation.aggregateAndExportFrom(messages, PARALLELISM, "ChannelStats");
 
         // Per-User statistics
         UserStatsAggregation userStatsAggregation = new UserStatsAggregation(
                 config.getDbJdbcUrl(),
-                config.getAggregationIntervalMillis(),
-                config.getTriggerIntervalMillis());
+                config.getAggregationInterval(),
+                config.getTriggerInterval());
         userStatsAggregation.prepareTable(stmt);
         userStatsAggregation.aggregateAndExportFrom(messages, PARALLELISM, "UserStats");
 
@@ -101,8 +101,8 @@ public class EmoteAnalyser {
                 config.getDbChannelsTableName(),
                 config.getTwitchClientId(),
                 config.getTwitchClientSecret(),
-                config.getEmoteFetchIntervalMillis(),
-                config.getEmoteFetchTimeoutMillis());
+                config.getEmoteFetchInterval(),
+                config.getEmoteFetchTimeout());
         emoteExtractor.prepareTables(stmt);
         DataStream<Emote> emotes = messages
                 .flatMap(emoteExtractor)
@@ -115,16 +115,16 @@ public class EmoteAnalyser {
         // Per-Emote statistics
         EmoteStatsAggregation emoteStatsAggregation = new EmoteStatsAggregation(
                 config.getDbJdbcUrl(),
-                config.getAggregationIntervalMillis(),
-                config.getTriggerIntervalMillis());
+                config.getAggregationInterval(),
+                config.getTriggerInterval());
         emoteStatsAggregation.prepareTable(stmt);
         emoteStatsAggregation.aggregateAndExportFrom(emotes, PARALLELISM, "EmoteStats");
 
         // Per-Emote per-User statistics
         UserEmoteStatsAggregation userEmoteStatsAggregation = new UserEmoteStatsAggregation(
                 config.getDbJdbcUrl(),
-                config.getAggregationIntervalMillis(),
-                config.getTriggerIntervalMillis());
+                config.getAggregationInterval(),
+                config.getTriggerInterval());
         userEmoteStatsAggregation.prepareTable(stmt);
         userEmoteStatsAggregation.aggregateAndExportFrom(emotes, PARALLELISM, "UserEmoteStats");
 
@@ -139,8 +139,8 @@ public class EmoteAnalyser {
 
         PhraseStatsAggregation phraseStatsAggregation = new PhraseStatsAggregation(
                 config.getDbJdbcUrl(),
-                config.getAggregationIntervalMillis(),
-                config.getTriggerIntervalMillis());
+                config.getAggregationInterval(),
+                config.getTriggerInterval());
         phraseStatsAggregation.prepareTable(stmt);
         phraseStatsAggregation.aggregateAndExportFrom(matchedPhrases, PARALLELISM, "PhraseStats");
 

@@ -6,6 +6,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -18,8 +19,8 @@ public class SevenTVEmoteProvider extends EmoteProvider {
         put("User-Agent", "Mozilla/5.0");
     }};
 
-    public SevenTVEmoteProvider(int fetchTimeoutMillis) {
-        super(fetchTimeoutMillis);
+    public SevenTVEmoteProvider(Duration fetchTimeout) {
+        super(fetchTimeout);
     }
 
     @Override

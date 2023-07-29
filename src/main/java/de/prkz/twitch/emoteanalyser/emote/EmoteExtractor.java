@@ -14,13 +14,15 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.sql.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.*;
 
 public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
 
     private static final Logger LOG = LoggerFactory.getLogger(EmoteExtractor.class);
 
-    private transient long lastEmoteFetch;
+    private transient Instant lastEmoteFetch;
     private transient Set<String> emotes;
     private transient Map<String, Channel> channels;
     private transient TwitchHelix twitch;
@@ -31,23 +33,23 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
     private final String channelsTableName;
     private final String twitchClientId;
     private final String twitchClientSecret;
-    private final int emoteFetchIntervalMillis;
-    private final int emoteFetchTimeoutMillis;
+    private final Duration emoteFetchInterval;
+    private final Duration emoteFetchTimeout;
 
     public EmoteExtractor(String jdbcUrl,
                           String emotesTableName,
                           String channelsTableName,
                           String twitchClientId,
                           String twitchClientSecret,
-                          int emoteFetchIntervalMillis,
-                          int emoteFetchTimeoutMillis) {
+                          Duration emoteFetchInterval,
+                          Duration emoteFetchTimeout) {
         this.jdbcUrl = jdbcUrl;
         this.emotesTableName = emotesTableName;
         this.channelsTableName = channelsTableName;
         this.twitchClientId = twitchClientId;
         this.twitchClientSecret = twitchClientSecret;
-        this.emoteFetchIntervalMillis = emoteFetchIntervalMillis;
-        this.emoteFetchTimeoutMillis = emoteFetchTimeoutMillis;
+        this.emoteFetchInterval = emoteFetchInterval;
+        this.emoteFetchTimeout = emoteFetchTimeout;
     }
 
     @Override
@@ -58,16 +60,16 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
                 .build();
 
         emoteProviders = Arrays.asList(
-                new TwitchEmoteProvider(twitch, emoteFetchTimeoutMillis),
-                new BTTVEmoteProvider(emoteFetchTimeoutMillis),
-                new FFZEmoteProvider(emoteFetchTimeoutMillis),
-                new SevenTVEmoteProvider(emoteFetchTimeoutMillis)
+                new TwitchEmoteProvider(twitch, emoteFetchTimeout),
+                new BTTVEmoteProvider(emoteFetchTimeout),
+                new FFZEmoteProvider(emoteFetchTimeout),
+                new SevenTVEmoteProvider(emoteFetchTimeout)
         );
 
         emotes = new HashSet<>();
         channels = new HashMap<>();
         reloadEmotes();
-        lastEmoteFetch = System.currentTimeMillis();
+        lastEmoteFetch = Instant.now();
     }
 
     @Override
@@ -77,15 +79,15 @@ public class EmoteExtractor extends RichFlatMapFunction<Message, Emote> {
             channels.put(channelName, new Channel(channelName));
 
             // Force emote reload
-            lastEmoteFetch = 0;
+            lastEmoteFetch = Instant.ofEpochMilli(0);
         }
 
-        long time = System.currentTimeMillis();
-        if (time - lastEmoteFetch > emoteFetchIntervalMillis) {
+        final var now = Instant.now();
+        if (now.isAfter(lastEmoteFetch.plus(emoteFetchInterval))) {
             try {
                 reloadEmotes();
             } finally {
-                lastEmoteFetch = time;
+                lastEmoteFetch = now;
             }
         }
 

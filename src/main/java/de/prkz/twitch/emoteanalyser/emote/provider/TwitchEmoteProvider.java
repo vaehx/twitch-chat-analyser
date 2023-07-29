@@ -9,6 +9,7 @@ import de.prkz.twitch.emoteanalyser.emote.EmoteType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -19,8 +20,8 @@ public class TwitchEmoteProvider extends EmoteProvider {
     private final TwitchHelix twitch;
 
 
-    public TwitchEmoteProvider(TwitchHelix twitch, int fetchTimeoutMillis) {
-        super(fetchTimeoutMillis);
+    public TwitchEmoteProvider(TwitchHelix twitch, Duration fetchTimeout) {
+        super(fetchTimeout);
         this.twitch = twitch;
     }
 

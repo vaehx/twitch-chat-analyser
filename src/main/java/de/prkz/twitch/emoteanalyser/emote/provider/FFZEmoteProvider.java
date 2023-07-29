@@ -7,6 +7,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -15,8 +16,8 @@ public class FFZEmoteProvider extends EmoteProvider {
     private static final String FFZ_API_BASEURL = "https://api.frankerfacez.com/v1";
 
 
-    public FFZEmoteProvider(int fetchTimeoutMillis) {
-        super(fetchTimeoutMillis);
+    public FFZEmoteProvider(Duration fetchTimeout) {
+        super(fetchTimeout);
     }
 
     @Override

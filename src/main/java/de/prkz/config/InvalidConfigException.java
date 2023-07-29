@@ -1,6 +1,6 @@
-package de.prkz.twitch.emoteanalyser.config;
+package de.prkz.config;
 
-public class InvalidConfigException extends Exception {
+public class InvalidConfigException extends RuntimeException {
     public InvalidConfigException(String msg) {
         super(msg);
     }

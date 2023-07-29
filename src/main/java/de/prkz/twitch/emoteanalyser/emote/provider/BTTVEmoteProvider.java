@@ -6,6 +6,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.net.URL;
+import java.time.Duration;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -14,8 +15,8 @@ public class BTTVEmoteProvider extends EmoteProvider {
     private static final String BTTV_API_BASEURL = "https://api.betterttv.net/2";
 
 
-    public BTTVEmoteProvider(int fetchTimeoutMillis) {
-        super(fetchTimeoutMillis);
+    public BTTVEmoteProvider(Duration fetchTimeout) {
+        super(fetchTimeout);
     }
 
     @Override

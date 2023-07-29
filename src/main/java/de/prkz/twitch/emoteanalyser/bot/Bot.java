@@ -22,6 +22,8 @@ import org.slf4j.impl.StaticLoggerBinder;
 
 import java.nio.file.Paths;
 import java.sql.*;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -143,10 +145,10 @@ public class Bot {
      * Updates stream info in DB for all channels that the bot is configured to listen to
      */
     private synchronized void updateAllStreamsInfo() {
-        // Check if *any* channel needs update. This avoid re-opening the prepared statement for every single message
-        final long now = System.currentTimeMillis();
+        // Check if *any* channel needs update. This avoids re-opening the prepared statement for every single message
+        final var now = Instant.now();
         boolean noStreamNeedsUpdate = livestreams.values().stream()
-                .noneMatch(d -> (now - d.updatedAt() >= config.getStreamsUpdateCooldownMillis()));
+                .noneMatch(d -> now.isAfter(d.updatedAt().plus(config.getStreamsUpdateCooldown())));
         if (livestreams.size() == config.getChannels().size() && noStreamNeedsUpdate) {
             return;
         }
@@ -181,10 +183,10 @@ public class Bot {
     private void updateStreamInfo(String channel, ThrowingConsumer<ChannelSearchResult> upsertCallback) {
         Dated<ChannelSearchResult> stream = livestreams.get(channel);
         if (stream != null) {
-            long now = System.currentTimeMillis();
-            if (now - stream.updatedAt() < config.getStreamsUpdateCooldownMillis()) {
+            final var now = Instant.now();
+            if (now.isBefore(stream.updatedAt().plus(config.getStreamsUpdateCooldown()))) {
                 LOG.info("Stream info on channel '{}' still up to date (updated {} ms ago)",
-                        channel, now - stream.updatedAt());
+                        channel, Duration.between(stream.updatedAt(), now).toMillis());
                 return; // info still up to date
             }
         } else {

@@ -7,14 +7,15 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.tuple.Tuple2;
 
 import java.sql.*;
+import java.time.Duration;
 
 public class UserStatsAggregation
         extends AbstractStatsAggregation<Message, Tuple2<String, String>, UserStats> {
 
     private static final String TABLE_NAME = "user_stats";
 
-    public UserStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
-        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
+    public UserStatsAggregation(String jdbcUrl, Duration aggregationInterval, Duration triggerInterval) {
+        super(jdbcUrl, aggregationInterval, triggerInterval);
     }
 
     @Override

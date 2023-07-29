@@ -7,6 +7,7 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import org.apache.flink.api.java.tuple.Tuple3;
 
 import java.sql.*;
+import java.time.Duration;
 
 // Key: (channel, emote, username)
 public class UserEmoteStatsAggregation
@@ -14,8 +15,8 @@ public class UserEmoteStatsAggregation
 
     private static final String TABLE_NAME = "user_emote_stats";
 
-    public UserEmoteStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
-        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
+    public UserEmoteStatsAggregation(String jdbcUrl, Duration aggregationInterval, Duration triggerInterval) {
+        super(jdbcUrl, aggregationInterval, triggerInterval);
     }
 
     @Override

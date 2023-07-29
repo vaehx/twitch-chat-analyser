@@ -8,14 +8,15 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 
 // Key: (channel, phraseName)
 public class PhraseStatsAggregation extends AbstractStatsAggregation<PhraseStats, Tuple2<String, String>, PhraseStats> {
 
     private static final String TABLE_NAME = "phrase_stats";
 
-    public PhraseStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
-        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
+    public PhraseStatsAggregation(String jdbcUrl, Duration aggregationInterval, Duration triggerInterval) {
+        super(jdbcUrl, aggregationInterval, triggerInterval);
     }
 
     @Override

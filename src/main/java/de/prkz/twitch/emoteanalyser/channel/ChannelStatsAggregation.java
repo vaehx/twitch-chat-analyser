@@ -9,13 +9,14 @@ import org.apache.flink.api.java.tuple.Tuple2;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 
 public class ChannelStatsAggregation extends AbstractStatsAggregation<Message, String, ChannelStats> {
 
     private static final String TABLE_NAME = "channel_stats";
 
-    public ChannelStatsAggregation(String jdbcUrl, long aggregationIntervalMillis, long triggerIntervalMillis) {
-        super(jdbcUrl, aggregationIntervalMillis, triggerIntervalMillis);
+    public ChannelStatsAggregation(String jdbcUrl, Duration aggregationInterval, Duration triggerInterval) {
+        super(jdbcUrl, aggregationInterval, triggerInterval);
     }
 
 

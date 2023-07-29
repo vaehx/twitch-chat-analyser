@@ -10,3 +10,4 @@ dependency-reduced-pom.xml
 db-storage/*
 bot.properties
 job.properties
+loki-client.properties

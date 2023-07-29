@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: loki
+    type: loki
+    access: proxy
+    version: 1
+    editable: false
+    url: http://loki:3100
+    basicAuth: false
+    #basicAuthUser: 'loki'
+    #secureJsonData:
+    #  basicAuthPassword: 'password'
+    jsonData:
+      #tlsSkipVerify: false
+      manageAlerts: false
